@@ -4,7 +4,7 @@
 
 TARGET="185.33.21.170:10000"
 URL="$1"
-[ -z "$URL" ] && { echo "Usage: $0 http://your-mp3.mp3"; exit 1; }
+[ -z "$URL" ] && { echo "Usage: $0 https://www.myinstants.com/media/sounds/peppe-brescia-poeta.mp3"; exit 1; }
 
 torsocks bash -c "
   # Circuit 1 - Test
