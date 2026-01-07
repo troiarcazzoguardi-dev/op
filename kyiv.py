@@ -11,7 +11,6 @@ DEFACE="TRUSTEDF57 GOVERNA MI FOTTO MARTHA ROOT"
 HITS=0
 TOTAL_TARGETS=2000
 
-echo "TRUSTEDF57 PENETRATION TEST v8.0"
 echo "Target: $BROKER:$PORT"
 echo "Scope: $TOTAL_TARGETS topics override"
 echo "Authorized pentest confirmed"
