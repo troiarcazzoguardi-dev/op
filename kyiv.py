@@ -11,9 +11,6 @@ DEFACE="TRUSTEDF57 GOVERNA MI FOTTO MARTHA ROOT"
 HITS=0
 TOTAL_TARGETS=2000
 
-echo "Target: $BROKER:$PORT"
-echo "Scope: $TOTAL_TARGETS topics override"
-echo "Authorized pentest confirmed"
 
 # TORSOCKS CLEANUP
 pkill -f torsocks 2>/dev/null
