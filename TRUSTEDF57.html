@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html style="overflow:hidden;margin:0;padding:0;height:100vh">
+<head>
+    <title>TRUSTEDF57</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        * {margin:0;padding:0;box-sizing:border-box;}
+        html, body {width:100%;height:100vh;overflow:hidden;}
+        body {background:linear-gradient(45deg,#1a0033,#330066);font-family:'Courier New',monospace;position:relative;}
+        #canvas {position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:1;display:block;}
+        #content {position:relative;z-index:2;padding:20px;text-align:center;}
+        h1 {font-size:5vw;color:#ff1493;text-shadow:0 0 25px #ff1493,0 0 50px #00ff88;animation:pulse 1.5s infinite;margin:20px 0;}
+        .tag {font-size:2.5vw;color:#ffd700;text-shadow:0 0 30px #ffd700;margin:10px 0;}
+        .info {font-size:1.2vw;color:#00ffff;line-height:1.4;text-shadow:0 0 10px #00ffff;}
+        .audioBtns {margin:20px 0;}
+        .audioBtn {background:linear-gradient(45deg,#ff4500,#ff1493,#00ff88);border:none;padding:12px 25px;font-size:1.3vw;color:#fff;border-radius:25px;cursor:pointer;transition:all 0.3s;margin:5px;text-transform:uppercase;letter-spacing:2px;box-shadow:0 0 20px rgba(255,69,0,0.6);}
+        .audioBtn:hover {transform:scale(1.15) rotate(5deg);box-shadow:0 0 40px #00ff88;}
+        .status {font-size:1vw;color:#ffaa00;margin-top:15px;text-shadow:0 0 10px #ffaa00;}
+        @keyframes pulse {0%,100%{transform:scale(1);}50%{transform:scale(1.04);}}
+        @keyframes glitch {0%,100%{transform:translate(0);}15%{transform:translate(-3px,3px);}30%{transform:translate(3px,-3px);}45%{transform:translate(-2px,2px);}60%{transform:translate(2px,-2px);}75%{transform:translate(-1px,1px);}}
+        .glitch {animation:glitch 0.8s infinite;}
+        @keyframes shake {0%,100%{transform:translateX(0);}25%{transform:translateX(-2px);}75%{transform:translateX(2px);}}
+        body.shake {animation:shake 0.1s infinite;}
+    </style>
+</head>
+<body class="shake">
+    <canvas id="canvas"></canvas>
+    
+    <div id="content">
+        <h1 class="glitch">🔥 SLAMMED BY TRUSTEDF57 🔥</h1>
+        <p class="tag">FUCK OFF MARTHA ROOT IS DICKHEAD</p>
+        <div class="info">
+            <p>Cordiali saluti da sta minchia, vi fotto le madri negri</p>
+            <p>Listen the sounds here, that's crazy. F57 OWNS BBC</p>
+        </div>
+        
+        <div class="audioBtns">
+            <button class="audioBtn" onclick="playSound(1)">🔊 PEPPE BRESCIA 🔊</button>
+            <button class="audioBtn" onclick="playSound(2)">💀 THAT'S WHY! 💀</button>
+            <button class="audioBtn" onclick="playSound(3)">😂ZIO BERLUSCONI TRUTH 😂</button>
+        </div>
+        
+        <p class="status" id="status">TRUSTEDF57 ACTIVE - Audio ready...</p>
+    </div>
+
+    
+    <audio id="sound1" loop preload="auto">
+        <source src="https://www.myinstants.com/media/sounds/peppe-brescia-poeta.mp3" type="audio/mpeg">
+    </audio>
+    <audio id="sound2" preload="auto">
+        <source src="https://www.myinstants.com/media/sounds/la-vida-es-un-carrusel.mp3" type="audio/mpeg">
+    </audio>
+    <audio id="sound3" preload="auto">
+        <source src="https://www.myinstants.com/media/sounds/berlusconi-poveri-comunisti.mp3" type="audio/mpeg">
+    </audio>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            canvas.style.width = window.innerWidth + 'px';
+            canvas.style.height = window.innerHeight + 'px';
+        }
+        resizeCanvas();
+        
+        const chars = 'F57アイスデフェイスF五七F57F57';
+        const fontSize = 13;
+        let columns, drops;
+        
+        function initDrops() {
+            columns = Math.floor(canvas.width / fontSize);
+            drops = Array(columns).fill(1);
+        }
+        initDrops();
+        
+        const colors = ['#ff1493', '#00ff88', '#ffd700', '#ff4500', '#ff69b4'];
+        
+        function draw() {
+            // FULLSCREEN BACKGROUND WIPE
+            ctx.fillStyle = 'rgba(26,0,51,0.08)';  // Increased fade
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            ctx.shadowBlur = 15;
+            
+            drops.forEach((y, i) => {
+                const color = colors[Math.floor(Math.random() * colors.length)];
+                ctx.fillStyle = color;
+                ctx.shadowColor = color;
+                ctx.font = `${fontSize}px monospace`;
+                
+                const text = chars[Math.floor(Math.random()*chars.length)];
+                ctx.fillText(text, i*fontSize, y*fontSize);
+                
+                if (y*fontSize > canvas.height && Math.random() > 0.96) {
+                    drops[i] = 0;
+                }
+                drops[i]++;
+            });
+        }
+        setInterval(draw, 45);  // Faster rain
+
+        
+        window.addEventListener('resize', () => {
+            resizeCanvas();
+            initDrops();
+        });
+
+        
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'F12' || (e.ctrlKey && e.shiftKey && e.key === 'I') || 
+                (e.ctrlKey && e.key === 'u') || (e.ctrlKey && e.key === 's')) {
+                e.preventDefault();
+                document.body.classList.add('shake');
+                setTimeout(()=>document.body.classList.remove('shake'), 100);
+                return false;
+            }
+        });
+        
+        document.addEventListener('contextmenu', e => e.preventDefault());
+        document.onselectstart = () => false;
+
+       
+        document.addEventListener('mousemove', (e) => {
+            const fake = document.createElement('div');
+            fake.style.cssText = 'position:fixed;pointer-events:none;width:1px;height:1px;background:transparent;z-index:9999';
+            fake.style.left = (e.clientX + (Math.random()-0.5)*80) + 'px';
+            fake.style.top = (e.clientY + (Math.random()-0.5)*80) + 'px';
+            document.body.appendChild(fake);
+            setTimeout(()=>fake.remove(), 80);
+        });
+
+        
+        let currentSound = null;
+        function playSound(id) {
+            if (currentSound) currentSound.pause();
+            const sounds = {
+                1: document.getElementById('sound1'),
+                2: document.getElementById('sound2'),
+                3: document.getElementById('sound3')
+            };
+            currentSound = sounds[id];
+            currentSound.currentTime = 0;
+            currentSound.loop = true;
+            currentSound.volume = 0.6;
+            currentSound.play().then(() => {
+                document.getElementById('status').textContent = `🔊BRAVO YOU ARE LISTENING TO THE AUDIO ENJOY THE EFFECTS WITH THIS SONG FRIEND - TRUSTEDF57🔊`;
+            }).catch(e => {
+                document.getElementById('status').textContent = 'LISTEN TO THE AUDIO AND ENJOY THIS SLAMMED BY TRUSTEDF57 - FORZA ITALIA FUCK OFF MARTHA ';
+            });
+        }
+        setTimeout(() => playSound(1), 500);
+
+        
+        setInterval(()=>{
+            const title = document.querySelector('h1');
+            title.style.transform = `translate(${Math.sin(Date.now()/200)*4}px,${Math.cos(Date.now()/300)*4}px) skew(${Math.sin(Date.now()/400)*2}deg)`;
+        }, 120);
+
+        
+        const oldLog = console.log;
+        console.log = (...args) => {
+            if (args[0] && !args[0].includes('F57')) return;
+            oldLog.apply(console, args);
+        };
+    </script>
+</body>
+</html>
