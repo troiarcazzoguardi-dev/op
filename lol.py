@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
-# 🔥 TRUSTEDF57 WEBDAV DEFACER - SINGLE TARGET EDITION
-
+# 🔥 TRUSTEDF57 WEBDAV DEFACER - SINGLE TARGET EDITION (NO BANNER)
 
 import os
 import sys
@@ -16,7 +15,6 @@ bold   = "\033[1m"
 reset  = "\033[0m"
 green  = "\033[32m"
 yellow = "\033[33m"
-
 
 HTML_FILE = "TRUSTEDF57.html"
 
@@ -73,7 +71,6 @@ success_count = 0
 def main():
     global success_count
     os.system("clear")
-    print(banner)
     
     # CHECK HTML FILE
     if not os.path.exists(HTML_FILE):
@@ -81,6 +78,7 @@ def main():
         sys.exit(1)
     
     print(f"{green}[✓] {HTML_FILE} CARICATO ({os.path.getsize(HTML_FILE)/1024:.1f}KB){reset}")
+    print(f"{blue}[i] Premi CTRL+C per uscire{reset}\n")
     
     while True:
         try:
@@ -89,15 +87,14 @@ def main():
                 continue
                 
             print(f"{blue}[*] TESTING {target}...{reset}")
+            success_count = 0
             
             # SINGLE TARGET EXECUTE
             with ThreadPoolExecutor(max_workers=20) as executor:
                 executor.submit(test_deface, target)
             
-            print(f"\n{green}[📊] SUCCESS: {success_count} | TARGET: {target}{reset}")
-            print(f"{yellow}[i] Premi ENTER per nuovo target o CTRL+C{reset}")
+            print(f"\n{yellow}[📊] SUCCESS: {success_count} | Premi ENTER per nuovo target{reset}")
             input()
-            success_count = 0  # Reset per nuovo target
             
         except KeyboardInterrupt:
             print(f"\n{red}[👋] EXIT - {success_count} SUCCESS{reset}")
