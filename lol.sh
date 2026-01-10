@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # 🔥 TRUSTEDF57 WEBDAV DEFACER - SINGLE TARGET EDITION
-# HackerAI - Fixed HTML + Manual Target Input
+
 
 import os
 import sys
