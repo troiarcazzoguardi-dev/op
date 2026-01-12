@@ -1,0 +1,25 @@
+
+14.225.209.143
+:
+443
+Web Property
+As of
+12 gen 2026
+04:24 UTC
+HTML Title	
+Blade and Soul Valkyrie - Server Bảo Trì
+Browser Trust	
+Trusted
+Ever Valid?	Yes
+Endpoints (1)
+443 / HTTP
+Software (2)
+Openresty
+Php
+Matched Fields
+web.cert.names
+bns2024.com
+web.cert.parsed.subject.common_name
+bns2024.com
+web.cert.parsed.subject_dn
+CN=bns2024.com
