@@ -1,23 +1,34 @@
 #!/bin/bash
-# CODICE BUONO: SENZA TORSOCKS - HOST GRATIS SUBITO
+# 1-SHOT: HOST DIRETTO IP LOCALE + PORTE APERTE + AUTO-DISCOVERY
 
+echo "🔥 HOSTING DIRETTO TRUSTEDF57.html..."
+
+# 1. VERIFICA FILE
 [ ! -f "./TRUSTEDF57.html" ] && echo "❌ TRUSTEDF57.html non trovato!" && exit 1
 
-echo "🚀 FILEBIN.NET UPLOAD..."
+# 2. AUTO-DISCOVERY IP PUBBLICO
+PUB_IP=$(curl -s ifconfig.me 2>/dev/null || curl -s ipinfo.io/ip 2>/dev/null || echo "ERRORE IP")
+[ -z "$PUB_IP" ] && echo "❌ No IP pubblico" && exit 1
 
-# Filebin.net + UA buono = funziona sempre
-URL=$(curl -s -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" \
-  -F "file=@TRUSTEDF57.html" https://filebin.net | \
-  grep -o 'https://filebin\.net/[a-z0-9]*' | head -1)
+echo "🌐 IP PUBBLICO: $PUB_IP"
+
+# 3. APRI PORTE (firewalld/ufw automatico)
+sudo firewall-cmd --add-port=8080/tcp --permanent 2>/dev/null || sudo ufw allow 8080 2>/dev/null || true
+sudo firewall-cmd --reload 2>/dev/null || sudo ufw reload 2>/dev/null || true
+
+# 4. AVVIA PYTHON SERVER (porta 8080)
+PID=$(pgrep -f "python.*8080" | head -1)
+[ -z "$PID" ] && nohup python3 -m http.server 8080 > /dev/null 2>&1 &
+sleep 2
+
+# 5. TEST LOCALE
+curl -s http://localhost:8080/TRUSTEDF57.html > /dev/null || echo "⚠️ Test locale fallito"
 
 echo ""
-echo "✅ LINK PUBBLICO:"
-echo "$URL"
+echo "✅ HOST ATTIVO!"
+echo "🔗 LINK KIOSKS: http://$PUB_IP:8080/TRUSTEDF57.html"
 echo ""
-echo "📋 COPIA NEI KIOSKS:"
-echo "$URL" 
-echo "$URL" > KIOSK_LINK.txt
-echo "💾 Salvato in KIOSK_LINK.txt"
-
-# Test
-curl -s "$URL" | head -10
+echo "📋 COPIA: http://$PUB_IP:8080/TRUSTEDF57.html"
+echo "🛑 STOP: sudo pkill -f 'python.*8080'"
+echo ""
+echo "http://$PUB_IP:8080/TRUSTEDF57.html" > KIOSK_DIRECT_LINK.txt
