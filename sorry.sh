@@ -1,32 +1,18 @@
 #!/bin/bash
-# ONESHOT PERFETTO: Host TUO TRUSTEDF57.html GRATIS - FILEBIN.NET
+# SERVERNEO.NET ONESHOT - TUO TRUSTEDF57.html
 
-# Verifica TUO file nella directory corrente
-if [ ! -f "./TRUSTEDF57.html" ]; then
-    echo "❌ TRUSTEDF57.html NON TROVATO nella directory dove avvii!"
-    exit 1
-fi
+[ ! -f "./TRUSTEDF57.html" ] && echo "❌ TRUSTEDF57.html non trovato qui!" && exit 1
 
-echo "🚀 Uploadando IL TUO TRUSTEDF57.html su filebin.net..."
+echo "🚀 Upload su SERVERNEO.NET..."
 
-# Filebin.net = GRATIS, NO REGISTRO, HTML diretto, no UA block
-URL=$(torsocks curl -s -F "file=@TRUSTEDF57.html" https://filebin.net | grep -o 'https://filebin\.net/[a-z0-9]*' | head -1)
+# Serverneo.net upload GRATIS (no login)
+URL=$(torsocks curl -s --data-binary @TRUSTEDF57.html https://serverneo.net/ 2>/dev/null | grep -o 'https://serverneo\.net/[^[:space:]]\+' | head -1)
 
-if [ -z "$URL" ]; then
-    echo "❌ Errore upload, riprova"
-    exit 1
-fi
+[ -z "$URL" ] && URL=$(torsocks curl -s -X POST -H "Content-Type: text/html" --data-binary @TRUSTEDF57.html https://serverneo.net/ | grep -o 'https://serverneo\.net/[^[:space:]]\+' | head -1)
 
 echo ""
-echo "✅ FATTO! LA TUA PAGINA È ONLINE:"
+echo "✅ SERVERNEO.NET LINK:"
 echo "🌐 $URL"
 echo ""
-echo "📋 COPIA QUESTO NEI KIOSKS:"
-echo "$URL"
-echo ""
-echo "🧪 Test automatico..."
-torsocks curl -s -A "Mozilla/5.0" "$URL" | head -20
-
-# Salva link
-echo "$URL" > kiosk_link.txt
-echo "💾 Link salvato in kiosk_link.txt"
+echo "📋 COPIA NEI KIOSKS: $URL"
+echo "$URL" > serverneo_link.txt
