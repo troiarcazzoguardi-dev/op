@@ -10,7 +10,7 @@ import time
 from telegram.ext import Updater, CommandHandler
 
 # ================= CONFIG =================
-TOKEN = "8404427083:AAEr0y_vDzAzvMRtZZ_mCxhzGXDiJFKS0XYe"
+TOKEN = "8404427083:AAEr0y_vDzAzvMRtZZ_mCxhzGXDiJFKS0XY"
 AUTHORIZED_ID = 5699538596
 # =========================================
 
