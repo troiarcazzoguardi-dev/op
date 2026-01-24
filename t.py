@@ -1,94 +1,52 @@
 #!/usr/bin/env python3
-from bacpypes.debugging import bacpypes_debugging, ModuleLogger
 from bacpypes.core import run
-from bacpypes.app import BIPSimpleApplication
+from bacpypes.app import BIPSimpleApplication  
 from bacpypes.local.device import LocalDeviceObject
 from bacpypes.pdu import Address
-from bacpypes.apdu import (
-    WhoIsRequest, ReadPropertyRequest, ConfirmedEventNotification,
-    SimpleAckPDU, ErrorPDU
-)
-from bacpypes.primitivedata import ObjectIdentifier, Unsigned, CharacterString
-from bacpypes.constructeddata import Sequence
-import sys
+from bacpypes.apdu import WhoIsRequest, ReadPropertyRequest
+from bacpypes.primitivedata import ObjectIdentifier, CharacterString
 import time
 
-bacpypes_debugging("bacpypes.app:BIPSimpleApplication:10")
-bacpypes_debugging("bacpypes.comm:BIPDriver:10")
-
-class EnumApp(BIPSimpleApplication):
+class SimpleEnum(BIPSimpleApplication):
     def __init__(self, *args):
-        super(EnumApp, self).__init__(*args)
-        self.target_addr = Address("67.224.88.86:47808")
-        print("🔍 Inviando Who-Is al BBMD...")
-        self.do_whois()
-    
-    def do_whois(self):
+        super().__init__(*args)
+        self.target = Address("67.224.88.86:47808")
+        print("🎯 Who-Is -> BBMD JCI Metasys")
         whois = WhoIsRequest()
-        whois.pduDestination = self.target_addr
+        whois.pduDestination = self.target
         self.request(whois)
     
     def indication(self, apdu):
-        """Gestisce tutte le risposte"""
-        if apdu.pduDestination:
-            print(f"📥 Risposta da {apdu.pduSource}: {apdu.__class__.__name__}")
+        print(f"📨 {apdu.__class__.__name__}: {apdu}")
         
-        if isinstance(apdu, ConfirmedEventNotification):
-            print(f"🔔 Evento: {apdu.eventObjectIdentifier}")
-        
-        # Salva dispositivi I-Am
-        if hasattr(apdu, 'iAmDeviceIdentifier'):
-            device_id = apdu.iAmDeviceIdentifier
-            print(f"🎯 DEVICE: {device_id} @ {apdu.pduSource}")
-            self.enum_critical_objects(device_id)
+        # Dispositivi trovati
+        if hasattr(apdu, 'deviceIdentifier'):
+            dev_id = apdu.deviceIdentifier
+            print(f"\n🎯 DEVICE ID: {dev_id}")
+            self.read_stream_objects(dev_id)
     
-    def enum_critical_objects(self, device_id):
-        """Enumerazione oggetti TV broadcast"""
-        critical_objects = [
-            ("analogValue", 1, "AV_STREAM_MUX"),
-            ("analogOutput", 10, "AO_VIDEO_SOURCE"), 
-            ("binaryOutput", 1, "BO_CHANNEL_SWITCH"),
-            ("multiStateOutput", 1, "MSO_STREAM_SELECT"),
-            ("file", 1, "CONFIG_DUMP")
+    def read_stream_objects(self, dev_id):
+        print("\n🔍 Enumerando oggetti BROADCAST:")
+        objects = [
+            (200001, "AV_STREAM"),    # AnalogValue stream mux
+            (100001, "BO_CHANNEL"),   # BinaryOutput channel
+            (200010, "AO_SOURCE"),    # AnalogOutput source
         ]
         
-        for obj_type, instance, name in critical_objects:
-            oid = ObjectIdentifier(obj_type, instance)
-            print(f"🔍 Reading {name} ({oid}) su device {device_id}")
+        for inst, name in objects:
+            oid = ObjectIdentifier('analogValue', inst)
+            print(f"  📊 {name}: {oid}")
             
-            req = ReadPropertyRequest(
-                objectIdentifier=oid,
-                propertyIdentifier="objectName"
-            )
-            req.pduDestination = self.target_addr
-            self.request(req)
-            
-            # PresentValue immediato
-            req2 = ReadPropertyRequest(
-                objectIdentifier=oid,
-                propertyIdentifier="presentValue"
-            )
-            req2.pduDestination = self.target_addr
-            self.request(req2)
-        
-        print("✅ Enumerazione completata. Cerca 'CHANNEL 31' o 'STREAM' negli oggetti.")
+            # ObjectName
+            req1 = ReadPropertyRequest(objectIdentifier=oid, propertyIdentifier=19)
+            req1.pduDestination = self.target
+            self.request(req1)
 
-# Device locale
 this_device = LocalDeviceObject(
-    objectName=CharacterString("Pentest-Scanner"),
-    objectIdentifier=999999,
-    maxApduLengthAccepted=1476,
-    segmentationSupported="noSegmentation",
-    localTime=0,
-    localDate=0,
-    utcOffset=0,
-    daylightSavingsStatus=False,
-    vendorIdentifier=15,
+    objectName=CharacterString("Enum-Tool"),
+    objectIdentifier=12345
 )
 
-# App
-this_application = EnumApp(this_device, '0.0.0.0')
-
-print("🚀 BACnet Enum su 67.224.88.86:47808 (JCI Metasys)")
-print("Aspetta 30-60s per BBMD relay response...")
+app = SimpleEnum(this_device, '0.0.0.0')
+print("Avvio... (attendi 20s)")
 run()
