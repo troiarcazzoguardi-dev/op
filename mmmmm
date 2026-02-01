@@ -1,0 +1,1891 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Super Admin Dashboard | LogicGrid</title>
+    <link
+        href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+        rel="stylesheet"
+    />
+    <style>
+        body {
+            background: #f6fbf7;
+        }
+        .card {
+            border: 1px solid #e5efe8;
+            border-radius: 14px;
+            box-shadow: 0 6px 16px rgba(20, 83, 45, 0.08);
+        }
+        .small-muted {
+            color: #6c757d;
+            font-size: 0.9rem;
+        }
+        .gps-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 6px;
+            vertical-align: middle;
+        }
+        .gps-dot.green {
+            background: #198754;
+        }
+        .gps-dot.yellow {
+            background: #f59e0b;
+        }
+        .gps-dot.red {
+            background: #dc2626;
+        }
+        .gps-badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 8px;
+            border-radius: 999px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+        .gps-badge.na {
+            background: #e5e7eb;
+            color: #4b5563;
+        }
+        .search-input {
+            border-radius: 999px;
+            padding: 6px 12px;
+            border: 1px solid #d1e7d8;
+        }
+        .agent-badge {
+            background: #e8f5ee;
+            color: #166534;
+            font-weight: 600;
+        }
+        .agent-action-btn {
+            padding: 2px 8px;
+        }
+        .access-code-pill {
+            background: #111827;
+            color: #f9fafb;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+            padding: 2px 8px;
+            border-radius: 999px;
+            font-size: 0.8rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .lead-verifying {
+            background: #e8f5ee;
+        }
+    </style>
+</head>
+<body>
+    <div class="container py-4">
+        <div class="text-center mb-3">
+            <h4 class="fw-bold">🛡️ Super Admin Dashboard</h4>
+            <div class="small-muted">Disaster Recovery & School Management</div>
+        </div>
+
+        <div id="loginSection">
+            <div class="card p-3 mb-3 admin-only">
+            <div class="row g-2 align-items-end">
+                <div class="col-md-6">
+                    <label class="form-label" for="adminUsername">Username</label>
+                    <input type="text" id="adminUsername" class="form-control" />
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label" for="masterPassword">Password</label>
+                    <input type="password" id="masterPassword" class="form-control" />
+                </div>
+                <div class="col-md-3">
+                    <button class="btn btn-success w-100" id="authBtn">Authenticate</button>
+                </div>
+                <div class="col-md-3 text-md-end small-muted" id="authStatus">Not Authenticated</div>
+            </div>
+            </div>
+        </div>
+
+        <div id="secureContent" style="display: none;">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <span class="badge text-bg-secondary d-none" id="viewerBadge">VIEW ONLY MODE</span>
+                <button class="btn btn-outline-danger btn-sm" id="logoutBtn">Logout</button>
+            </div>
+
+        <div class="d-flex flex-wrap gap-2 mb-3">
+            <button class="btn btn-sm btn-outline-success" id="menuDashboard">Dashboard</button>
+            <button class="btn btn-sm btn-outline-dark" id="menuAudit">Audit &amp; Performance</button>
+        </div>
+
+        <div id="dashboardSection">
+        <div class="card p-3 mb-3">
+            <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2">
+                <h6 class="fw-bold mb-0">Registered Schools</h6>
+                <div class="d-flex flex-wrap gap-2 align-items-center">
+                    <input
+                        type="text"
+                        id="schoolSearch"
+                        class="form-control form-control-sm search-input"
+                        placeholder="🔍 Search schools, categories, or phones..."
+                    />
+                    <button class="btn btn-outline-success btn-sm" id="refreshSchools">Refresh</button>
+                    <button class="btn btn-outline-primary btn-sm" id="exportSchools">📂 Export School Directory</button>
+                    <button class="btn btn-success btn-sm admin-only" data-bs-toggle="modal" data-bs-target="#onboardModal">
+                        Add New School
+                    </button>
+                </div>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-sm table-bordered align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Name</th>
+                            <th>Category</th>
+                            <th>Code</th>
+                            <th>CAC</th>
+                            <th>Bank</th>
+                            <th>Admin Phone</th>
+                            <th>Assigned Agent</th>
+                            <th>Status</th>
+                            <th class="admin-only">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="schoolsTable">
+                        <tr data-row-type="placeholder">
+                            <td colspan="9" class="text-center small-muted">Authenticate to load schools.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="card p-3 mb-3">
+            <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2">
+                <h6 class="fw-bold mb-0">Field Agents</h6>
+                <div class="d-flex flex-wrap gap-2">
+                    <button class="btn btn-outline-success btn-sm" id="refreshAgents">Refresh</button>
+                    <button class="btn btn-outline-primary btn-sm admin-only" data-bs-toggle="modal" data-bs-target="#agentModal">
+                        ➕ Add Agent
+                    </button>
+                </div>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-sm table-bordered align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Name</th>
+                            <th>Phone</th>
+                            <th>Access Code</th>
+                            <th>NIN</th>
+                            <th>Assigned Schools</th>
+                            <th class="admin-only">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="agentsTable">
+                        <tr>
+                            <td colspan="6" class="text-center small-muted">Authenticate to load agents.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="card p-3 mb-3">
+            <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2">
+                <h6 class="fw-bold mb-0">New Leads</h6>
+                <div class="d-flex flex-wrap gap-2">
+                    <button class="btn btn-outline-success btn-sm" id="refreshLeads">Refresh</button>
+                </div>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-sm table-bordered align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>School</th>
+                            <th>Principal</th>
+                            <th>Phone</th>
+                            <th>Status</th>
+                            <th>Payment Status</th>
+                            <th>Created</th>
+                            <th class="admin-only">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="leadsTable">
+                        <tr>
+                            <td colspan="7" class="text-center small-muted">Authenticate to load leads.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="card p-3 mb-3">
+            <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2">
+                <h6 class="fw-bold mb-0">Students</h6>
+                <div class="d-flex gap-2">
+                    <button class="btn btn-outline-success btn-sm" id="refreshStudents">Refresh</button>
+                    <button class="btn btn-outline-primary btn-sm" id="exportStudents">Export Data</button>
+                </div>
+            </div>
+            <div class="d-flex flex-wrap gap-2 mb-2">
+                <input
+                    type="text"
+                    class="form-control"
+                    id="studentQueryInput"
+                    placeholder="Ask the data... (e.g., 'Show students with no NIN')"
+                />
+                <button class="btn btn-dark" id="askAiBtn">Ask AI 🤖</button>
+                <button class="btn btn-outline-secondary" id="clearQueryBtn">Clear Results</button>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-sm table-bordered align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Student</th>
+                            <th>Class</th>
+                            <th>Guardian Phone</th>
+                            <th>Location</th>
+                        </tr>
+                    </thead>
+                    <tbody id="studentsTable">
+                        <tr>
+                            <td colspan="4" class="text-center small-muted">Authenticate to load students.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="card p-3 mb-3">
+            <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2">
+                <h6 class="fw-bold mb-0">Class Teachers</h6>
+                <div class="d-flex flex-wrap gap-2 align-items-center">
+                    <select id="classSchoolFilter" class="form-select form-select-sm">
+                        <option value="">All Schools</option>
+                    </select>
+                    <button class="btn btn-outline-success btn-sm" id="refreshClasses">Refresh</button>
+                </div>
+            </div>
+            <div class="row g-2 align-items-end mb-3">
+                <div class="col-md-4">
+                    <label class="form-label small-muted">Teacher Name</label>
+                    <input type="text" class="form-control form-control-sm" id="newTeacherName" placeholder="e.g. Amina Bello" />
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label small-muted">Teacher Phone</label>
+                    <input type="text" class="form-control form-control-sm" id="newTeacherPhone" placeholder="2348012345678" />
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label small-muted">School</label>
+                    <select id="teacherSchoolSelect" class="form-select form-select-sm">
+                        <option value="">Select school</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <button class="btn btn-sm btn-primary w-100" id="createTeacherBtn">Add Teacher</button>
+                </div>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-sm table-bordered align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>School</th>
+                            <th>Class</th>
+                            <th>Teacher Phone</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="classesTable">
+                        <tr>
+                            <td colspan="4" class="text-center small-muted">Authenticate to load classes.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="card p-3 mb-3">
+            <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2">
+                <h6 class="fw-bold mb-0">Restore Data</h6>
+                <div class="d-flex gap-2 align-items-center">
+                    <select id="restoreTable" class="form-select form-select-sm">
+                        <option value="students">Students</option>
+                        <option value="attendance">Attendance</option>
+                        <option value="members">Members</option>
+                        <option value="communities">Communities</option>
+                    </select>
+                    <button class="btn btn-outline-success btn-sm" id="refreshDeleted">Refresh</button>
+                </div>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-sm table-bordered align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>ID</th>
+                            <th>Label</th>
+                            <th>Deleted At</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="deletedTable">
+                        <tr>
+                            <td colspan="4" class="text-center small-muted">Authenticate to load deleted rows.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        </div>
+
+        <div id="auditSection" style="display: none;">
+            <div class="card p-3 mb-3">
+                <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2">
+                    <h6 class="fw-bold mb-0">Recent Activity Log</h6>
+                    <div class="d-flex flex-wrap gap-2 align-items-center">
+                        <input type="text" class="form-control form-control-sm" id="auditTicketSearch" placeholder="Search Ticket Ref" />
+                        <button class="btn btn-outline-success btn-sm" id="refreshAudit">Refresh</button>
+                    </div>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-sm table-bordered align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Ticket Ref</th>
+                                <th>Action</th>
+                                <th>Staff Member</th>
+                                <th>Time</th>
+                            </tr>
+                        </thead>
+                        <tbody id="auditTable">
+                            <tr>
+                                <td colspan="4" class="text-center small-muted">Authenticate to load audit logs.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="card p-3 mb-3">
+                <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2">
+                    <h6 class="fw-bold mb-0">Staff Metrics (Approvals)</h6>
+                </div>
+                <div class="row g-2 mb-2">
+                    <div class="col-md-4">
+                        <label class="form-label small-muted">Staff Member</label>
+                        <input type="text" class="form-control form-control-sm" id="auditStaffFilter" placeholder="admin, manager..." />
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label small-muted">Start Date</label>
+                        <input type="date" class="form-control form-control-sm" id="auditStartDate" />
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label small-muted">End Date</label>
+                        <input type="date" class="form-control form-control-sm" id="auditEndDate" />
+                    </div>
+                </div>
+                <div id="auditSummary" class="small-muted">Authenticate to view metrics.</div>
+            </div>
+        </div>
+
+        <footer class="text-center small">Powered by LogicGrid AI</footer>
+    </div>
+
+    <div class="modal fade" id="onboardModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content">
+                <form id="onboardForm">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Add New School</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label">School Category</label>
+                                <select class="form-select" id="schoolCategory" required>
+                                    <option value="" selected disabled>Select Category</option>
+                                    <option value="Conventional (Public)">Conventional (Public)</option>
+                                    <option value="Conventional (Private)">Conventional (Private)</option>
+
+                                    <option value="Makarantar Allo">Makarantar Allo (Traditional)</option>
+                                    <option value="Islamiya">Islamiya (Modern Islamic)</option>
+
+                                    <option value="Orphanage">Orphanage / Care Center</option>
+                                    <option value="IDP Camp">IDP Camp Learning Center</option>
+                                </select>
+
+                            </div>
+                            <div class="col-md-6 d-none" id="categoryOtherWrapper">
+                                <label class="form-label">Specify Category</label>
+                                <input type="text" class="form-control" id="categoryOther" placeholder="Enter category" />
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">School Name</label>
+                                <input type="text" class="form-control" id="schoolName" required />
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">School Email</label>
+                                <input type="email" class="form-control" id="schoolEmail" required />
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Address (City/State)</label>
+                                <input type="text" class="form-control" id="schoolAddress" required />
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Principal Name</label>
+                                <input type="text" class="form-control" id="principalName" required />
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Principal WhatsApp</label>
+                                <input type="text" class="form-control" id="principalPhone" placeholder="2348012345678" required />
+                                <div class="form-text small-muted d-none" id="principalPhoneHint">
+                                    Not applicable for IDP camps.
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Head of Institution Name</label>
+                                <input type="text" class="form-control" id="headOfInstitution" placeholder="Principal or Malam's Name" />
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Official Contact Phone</label>
+                                <input type="text" class="form-control" id="contactPhone" placeholder="Official phone number" />
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label d-block">Assign Field Agent</label>
+                                <select class="form-select" id="assignedAgent">
+                                    <option value="">Unassigned</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label d-block">CAC Registered?</label>
+                                <select class="form-select" id="cacRegistered">
+                                    <option value="no" selected>No</option>
+                                    <option value="yes">Yes</option>
+                                </select>
+                                <div class="form-text small-muted d-none" id="cacRegisteredHint">
+                                    Not required for IDP camps.
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label d-block">Has Bank Account?</label>
+                                <select class="form-select" id="hasBankAccount">
+                                    <option value="no" selected>No</option>
+                                    <option value="yes">Yes</option>
+                                </select>
+                                <div class="form-text small-muted d-none" id="hasBankAccountHint">
+                                    Not required for IDP camps.
+                                </div>
+                            </div>
+                            <div class="col-12">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="copyFromPrincipal" />
+                                    <label class="form-check-label" for="copyFromPrincipal">
+                                        Copy from Principal
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label d-block">Plan</label>
+                                <div class="form-check form-check-inline">
+                                    <input class="form-check-input" type="radio" name="plan" id="planTermly" value="termly" checked />
+                                    <label class="form-check-label" for="planTermly">Termly</label>
+                                </div>
+                                <div class="form-check form-check-inline">
+                                    <input class="form-check-input" type="radio" name="plan" id="planYearly" value="yearly" />
+                                    <label class="form-check-label" for="planYearly">Yearly</label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                                <button type="submit" class="btn btn-success admin-save">Create School</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="agentModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content">
+                <form id="agentForm">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Add New Field Agent</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label">Agent Name</label>
+                                <input type="text" class="form-control" id="agentName" required />
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Phone</label>
+                                <input type="text" class="form-control" id="agentPhone" placeholder="2348012345678" />
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Email</label>
+                                <input type="email" class="form-control" id="agentEmail" placeholder="agent@example.com" />
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">NIN</label>
+                                <input type="text" class="form-control" id="agentNin" placeholder="11-digit NIN" maxlength="11" />
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Access Code</label>
+                                <div class="input-group">
+                                    <input type="text" class="form-control" id="agentAccessCode" placeholder="6-digit code" maxlength="6" />
+                                    <button class="btn btn-outline-secondary" type="button" id="generateAgentCode">
+                                        Generate Random
+                                    </button>
+                                </div>
+                                <div class="form-text small-muted" id="agentAccessHint">Use a 6-digit code for agent login.</div>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Role</label>
+                                <input type="text" class="form-control" id="agentRole" placeholder="Field Agent" />
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label">Address</label>
+                                <textarea class="form-control" id="agentAddress" rows="2"></textarea>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-success admin-save">Create Agent</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="toast-container position-fixed top-0 end-0 p-3">
+        <div id="statusToast" class="toast align-items-center text-bg-success border-0" role="alert" aria-live="assertive" aria-atomic="true">
+            <div class="d-flex">
+                <div class="toast-body" id="statusToastBody">Status</div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+            </div>
+        </div>
+    </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        const USERNAME_KEY = 'admin_username';
+        const authStatus = document.getElementById('authStatus');
+        const masterInput = document.getElementById('masterPassword');
+        const usernameInput = document.getElementById('adminUsername');
+        const schoolsTable = document.getElementById('schoolsTable');
+        const deletedTable = document.getElementById('deletedTable');
+        const studentsTable = document.getElementById('studentsTable');
+        const classesTable = document.getElementById('classesTable');
+        const studentQueryInput = document.getElementById('studentQueryInput');
+        const askAiBtn = document.getElementById('askAiBtn');
+        const clearQueryBtn = document.getElementById('clearQueryBtn');
+        const onboardForm = document.getElementById('onboardForm');
+        const statusToast = document.getElementById('statusToast');
+        const statusToastBody = document.getElementById('statusToastBody');
+        const onboardModal = document.getElementById('onboardModal');
+        const agentModal = document.getElementById('agentModal');
+        const agentForm = document.getElementById('agentForm');
+        const agentsTable = document.getElementById('agentsTable');
+        const agentAccessCode = document.getElementById('agentAccessCode');
+        const agentAccessHint = document.getElementById('agentAccessHint');
+        const generateAgentCodeBtn = document.getElementById('generateAgentCode');
+        const leadsTable = document.getElementById('leadsTable');
+        const refreshLeads = document.getElementById('refreshLeads');
+        const menuDashboard = document.getElementById('menuDashboard');
+        const menuAudit = document.getElementById('menuAudit');
+        const dashboardSection = document.getElementById('dashboardSection');
+        const auditSection = document.getElementById('auditSection');
+        const auditTable = document.getElementById('auditTable');
+        const auditSummary = document.getElementById('auditSummary');
+        const refreshAudit = document.getElementById('refreshAudit');
+        const auditTicketSearch = document.getElementById('auditTicketSearch');
+        const auditStaffFilter = document.getElementById('auditStaffFilter');
+        const auditStartDate = document.getElementById('auditStartDate');
+        const auditEndDate = document.getElementById('auditEndDate');
+        const loginSection = document.getElementById('loginSection');
+        const secureContent = document.getElementById('secureContent');
+        const logoutBtn = document.getElementById('logoutBtn');
+        const viewerBadge = document.getElementById('viewerBadge');
+        const schoolSearch = document.getElementById('schoolSearch');
+        const schoolCategory = document.getElementById('schoolCategory');
+        const categoryOtherWrapper = document.getElementById('categoryOtherWrapper');
+        const categoryOther = document.getElementById('categoryOther');
+        const schoolEmail = document.getElementById('schoolEmail');
+        const headOfInstitution = document.getElementById('headOfInstitution');
+        const contactPhone = document.getElementById('contactPhone');
+        const cacRegistered = document.getElementById('cacRegistered');
+        const hasBankAccount = document.getElementById('hasBankAccount');
+        const copyFromPrincipal = document.getElementById('copyFromPrincipal');
+        const assignedAgent = document.getElementById('assignedAgent');
+        const principalName = document.getElementById('principalName');
+        const principalPhone = document.getElementById('principalPhone');
+        const principalNameLabel = principalName.closest('.col-md-6')?.querySelector('label');
+        const principalPhoneLabel = principalPhone.closest('.col-md-6')?.querySelector('label');
+        const contactPhoneLabel = contactPhone.closest('.col-md-6')?.querySelector('label');
+        const principalPhoneHint = document.getElementById('principalPhoneHint');
+        const cacRegisteredHint = document.getElementById('cacRegisteredHint');
+        const hasBankAccountHint = document.getElementById('hasBankAccountHint');
+        const cacRegisteredLabel = cacRegistered.closest('.col-md-6')?.querySelector('label');
+        const hasBankAccountLabel = hasBankAccount.closest('.col-md-6')?.querySelector('label');
+        const copyFromPrincipalLabel = document.querySelector('label[for="copyFromPrincipal"]');
+        const classSchoolFilter = document.getElementById('classSchoolFilter');
+        const refreshClasses = document.getElementById('refreshClasses');
+        const newTeacherName = document.getElementById('newTeacherName');
+        const newTeacherPhone = document.getElementById('newTeacherPhone');
+        const teacherSchoolSelect = document.getElementById('teacherSchoolSelect');
+        const createTeacherBtn = document.getElementById('createTeacherBtn');
+        let agentsCache = [];
+        let schoolsCache = [];
+        let teachersCache = [];
+        let editingAgentId = null;
+        let undoArchiveTimer = null;
+        let lastArchivedSchoolId = null;
+        const ROLE_KEY = 'admin_role';
+        let currentRole = localStorage.getItem(ROLE_KEY) || '';
+        const defaultLabels = {
+            principalName: principalNameLabel?.textContent?.trim() || 'Principal Name',
+            principalPhone: principalPhoneLabel?.textContent?.trim() || 'Principal WhatsApp',
+            contactPhone: contactPhoneLabel?.textContent?.trim() || 'Official Contact Phone',
+            copyFromPrincipal: copyFromPrincipalLabel?.textContent?.trim() || 'Copy from Principal'
+        };
+
+        function getHeaders() {
+            return {
+                'Content-Type': 'application/json'
+            };
+        }
+
+        function getAdminHeaders() {
+            return {
+                'Content-Type': 'application/json'
+            };
+        }
+
+        function setAuthStatus(text, isError = false) {
+            authStatus.textContent = text;
+            authStatus.style.color = isError ? '#dc3545' : '#198754';
+        }
+
+        function getRowLabel(row) {
+            return row.name || row.full_name || row.phone || row.parent_phone || row.role_title || '-';
+        }
+
+        function sanitizePhone(value) {
+            return String(value || '').replace(/[^\d]/g, '');
+        }
+
+        function showToast(message, isError = false) {
+            statusToastBody.textContent = message;
+            statusToast.classList.toggle('text-bg-danger', isError);
+            statusToast.classList.toggle('text-bg-success', !isError);
+            const toast = bootstrap.Toast.getOrCreateInstance(statusToast);
+            toast.show();
+        }
+
+        function applyRolePermissions(role) {
+            currentRole = role || '';
+            localStorage.setItem(ROLE_KEY, currentRole);
+            const isSuperAdmin = currentRole === 'SUPER_ADMIN';
+            viewerBadge.classList.add('d-none');
+            document.querySelectorAll('.super-admin-only').forEach((el) => {
+                el.classList.toggle('d-none', !isSuperAdmin);
+            });
+        }
+
+        function showUndoArchiveToast(schoolId) {
+            if (undoArchiveTimer) {
+                clearTimeout(undoArchiveTimer);
+                undoArchiveTimer = null;
+            }
+            lastArchivedSchoolId = schoolId;
+            statusToastBody.innerHTML = 'School archived. <button class="btn btn-sm btn-light ms-2" id="undoArchiveBtn">Undo</button>';
+            statusToast.classList.remove('text-bg-danger');
+            statusToast.classList.add('text-bg-success');
+            const toast = bootstrap.Toast.getOrCreateInstance(statusToast);
+            toast.show();
+
+            const undoBtn = document.getElementById('undoArchiveBtn');
+            if (undoBtn) {
+                undoBtn.addEventListener('click', async () => {
+                    if (!lastArchivedSchoolId) return;
+                    undoBtn.disabled = true;
+                    try {
+                        const res = await fetch(`/api/schools/${lastArchivedSchoolId}/restore`, {
+                            method: 'PUT',
+                            headers: getHeaders()
+                        });
+                        if (!res.ok) throw new Error('Failed to restore school.');
+                        showToast('Archive undone.');
+                        lastArchivedSchoolId = null;
+                        clearTimeout(undoArchiveTimer);
+                        undoArchiveTimer = null;
+                        await loadSchools();
+                    } catch (err) {
+                        showToast(err.message || 'Failed to restore school.', true);
+                    }
+                });
+            }
+
+            undoArchiveTimer = setTimeout(() => {
+                lastArchivedSchoolId = null;
+                const btn = document.getElementById('undoArchiveBtn');
+                if (btn) btn.disabled = true;
+            }, 8000);
+        }
+
+        function resetSecureContent() {
+            schoolsTable.innerHTML = `
+                <tr data-row-type="placeholder">
+                    <td colspan="9" class="text-center small-muted">Authenticate to load schools.</td>
+                </tr>
+            `;
+            agentsTable.innerHTML = `
+                <tr>
+                    <td colspan="6" class="text-center small-muted">Authenticate to load agents.</td>
+                </tr>
+            `;
+            studentsTable.innerHTML = `
+                <tr>
+                    <td colspan="4" class="text-center small-muted">Authenticate to load students.</td>
+                </tr>
+            `;
+            classesTable.innerHTML = `
+                <tr>
+                    <td colspan="4" class="text-center small-muted">Authenticate to load classes.</td>
+                </tr>
+            `;
+            leadsTable.innerHTML = `
+                <tr>
+                    <td colspan="6" class="text-center small-muted">Authenticate to load leads.</td>
+                </tr>
+            `;
+            deletedTable.innerHTML = `
+                <tr>
+                    <td colspan="4" class="text-center small-muted">Authenticate to load deleted rows.</td>
+                </tr>
+            `;
+            auditTable.innerHTML = `
+                <tr>
+                    <td colspan="4" class="text-center small-muted">Authenticate to load audit logs.</td>
+                </tr>
+            `;
+            auditSummary.textContent = 'Authenticate to view metrics.';
+            schoolSearch.value = '';
+            assignedAgent.innerHTML = '<option value="">Unassigned</option>';
+            classSchoolFilter.innerHTML = '<option value="">All Schools</option>';
+            teacherSchoolSelect.innerHTML = '<option value="">Select school</option>';
+            agentsCache = [];
+            schoolsCache = [];
+        }
+
+        function applySchoolFilter() {
+            const rawQuery = schoolSearch.value.trim().toLowerCase();
+            const query = rawQuery.replace(/\s+/g, ' ');
+            const queryDigits = rawQuery.replace(/[^\d]/g, '');
+            const rows = Array.from(schoolsTable.querySelectorAll('tr')).filter(
+                (row) => row.dataset.rowType !== 'placeholder' && row.id !== 'schoolsNoResults'
+            );
+            let hasVisibleRow = false;
+
+            rows.forEach((row) => {
+                const text = row.textContent.toLowerCase();
+                const normalizedText = text.replace(/\s+/g, ' ');
+                const digitsOnlyText = text.replace(/[^\d]/g, '');
+                const isMatch = !query
+                    || normalizedText.includes(query)
+                    || (queryDigits && digitsOnlyText.includes(queryDigits));
+                row.style.display = isMatch ? 'table-row' : 'none';
+                if (isMatch) {
+                    hasVisibleRow = true;
+                }
+            });
+
+            const noResultsRow = document.getElementById('schoolsNoResults');
+            const shouldShowNoResults = query && rows.length > 0 && !hasVisibleRow;
+
+            if (shouldShowNoResults) {
+                if (noResultsRow) {
+                    noResultsRow.style.display = 'table-row';
+                } else {
+                    const row = document.createElement('tr');
+                    row.id = 'schoolsNoResults';
+                    row.innerHTML = '<td colspan="9" class="text-center small-muted">No schools found matching your query.</td>';
+                    schoolsTable.appendChild(row);
+                }
+            } else if (noResultsRow) {
+                noResultsRow.style.display = 'none';
+            }
+        }
+
+        function buildAgentOptionsHtml(selectedId) {
+            const options = ['<option value="">Unassigned</option>'];
+            agentsCache
+                .filter((agent) => agent.is_active !== false)
+                .forEach((agent) => {
+                    const isSelected = Number(selectedId) === Number(agent.id) ? 'selected' : '';
+                    options.push(`<option value="${agent.id}" ${isSelected}>${agent.name || `Agent #${agent.id}`}</option>`);
+                });
+            return options.join('');
+        }
+
+        function generateRandomDigits(length = 6) {
+            const max = 10 ** length;
+            return String(Math.floor(Math.random() * max)).padStart(length, '0');
+        }
+
+        function resetAgentForm() {
+            editingAgentId = null;
+            agentForm?.reset();
+            const title = document.querySelector('#agentModal .modal-title');
+            if (title) title.textContent = 'Add New Field Agent';
+            agentAccessCode.value = '';
+            agentAccessCode.readOnly = false;
+            generateAgentCodeBtn.disabled = false;
+            agentAccessHint.textContent = 'Use a 6-digit code for agent login.';
+        }
+
+        async function loadAgents() {
+            agentsTable.innerHTML = '<tr><td colspan="6" class="text-center small-muted">Loading...</td></tr>';
+            try {
+                const res = await fetch('/api/agents', { headers: getHeaders() });
+                if (!res.ok) throw new Error('Unauthorized');
+                const data = await res.json();
+                const agents = Array.isArray(data.agents) ? data.agents : [];
+                agentsCache = agents;
+                agentsTable.innerHTML = '';
+                if (agents.length === 0) {
+                    agentsTable.innerHTML = '<tr><td colspan="6" class="text-center small-muted">No agents found.</td></tr>';
+                } else {
+                agents.forEach((agent) => {
+                        const row = document.createElement('tr');
+                        const toggleLabel = agent.is_active === false ? 'Activate' : 'Deactivate';
+                        const accessCode = agent.access_code || '';
+                        const accessCodeHtml = accessCode
+                            ? `<span class="access-code-pill">${accessCode}
+                                    <button class="btn btn-sm btn-light" data-action="copy-code" data-code="${accessCode}">
+                                        Copy
+                                    </button>
+                               </span>`
+                            : '-';
+                    const actionsHtml = `
+                            <div class="d-flex flex-wrap gap-2 admin-only">
+                                <button class="btn btn-sm btn-outline-primary agent-action-btn" data-action="edit" data-id="${agent.id}">
+                                    Edit
+                                </button>
+                                <button class="btn btn-sm btn-outline-warning agent-action-btn" data-action="regen" data-id="${agent.id}">
+                                    Regenerate Code
+                                </button>
+                                <button class="btn btn-sm btn-outline-secondary agent-action-btn" data-action="toggle" data-id="${agent.id}">
+                                    ${toggleLabel}
+                                </button>
+                                <button class="btn btn-sm btn-outline-danger agent-action-btn super-admin-only" data-action="delete" data-id="${agent.id}">
+                                    Delete
+                                </button>
+                            </div>
+                        `;
+                        row.innerHTML = `
+                            <td>${agent.name || '-'}</td>
+                            <td>${agent.phone || '-'}</td>
+                            <td>${accessCodeHtml}</td>
+                            <td>${agent.nin || '-'}</td>
+                            <td><span class="badge agent-badge">${agent.school_count || 0}</span></td>
+                        <td>${actionsHtml}</td>
+                        `;
+                        agentsTable.appendChild(row);
+                    });
+                }
+
+                assignedAgent.innerHTML = buildAgentOptionsHtml(assignedAgent.value);
+            applyRolePermissions(currentRole);
+            } catch (err) {
+                agentsTable.innerHTML = '<tr><td colspan="5" class="text-center text-danger">Failed to load agents.</td></tr>';
+            }
+        }
+
+        async function loadSchools() {
+            schoolsTable.innerHTML = '<tr data-row-type="placeholder"><td colspan="9" class="text-center small-muted">Loading...</td></tr>';
+            try {
+                const res = await fetch('/api/admin/schools', { headers: getHeaders() });
+                if (!res.ok) throw new Error('Unauthorized');
+                const data = await res.json();
+                if (!data.schools || data.schools.length === 0) {
+                    schoolsTable.innerHTML = '<tr data-row-type="placeholder"><td colspan="9" class="text-center small-muted">No schools found.</td></tr>';
+                    return;
+                }
+                schoolsTable.innerHTML = '';
+                schoolsCache = data.schools;
+                classSchoolFilter.innerHTML = '<option value="">All Schools</option>' + data.schools
+                    .map((school) => `<option value="${school.id}">${school.name || `School #${school.id}`}</option>`)
+                    .join('');
+                teacherSchoolSelect.innerHTML = '<option value="">Select school</option>' + data.schools
+                    .map((school) => `<option value="${school.id}">${school.name || `School #${school.id}`}</option>`)
+                    .join('');
+                data.schools.forEach((school) => {
+                    const row = document.createElement('tr');
+                    const status = school.locked_at ? 'Locked' : 'Active';
+                    const cacBadge = school.cac_registered
+                        ? '<span class="badge text-bg-success">Yes</span>'
+                        : '<span class="badge text-bg-secondary">No</span>';
+                    const bankBadge = school.has_bank_account
+                        ? '<span class="badge text-bg-success">Yes</span>'
+                        : '<span class="badge text-bg-secondary">No</span>';
+                    const agentLabel = school.agent_name || school.agent_phone || '-';
+                const agentSelector = agentsCache.length > 0
+                    ? `<select class="form-select form-select-sm agent-assign admin-only" data-school-id="${school.id}">
+                            ${buildAgentOptionsHtml(school.agent_id)}
+                       </select>`
+                    : agentLabel;
+                    row.innerHTML = `
+                        <td>${school.name || '-'}</td>
+                        <td>${school.category || '-'}</td>
+                        <td>${school.code || '-'}</td>
+                        <td>${cacBadge}</td>
+                        <td>${bankBadge}</td>
+                        <td>${school.admin_phone || '-'}</td>
+                        <td>${agentSelector}</td>
+                        <td>${status}</td>
+                        <td>
+                        <div class="d-flex flex-wrap gap-2 admin-only">
+                                <button class="btn btn-sm btn-outline-danger super-admin-only" data-action="archive" data-id="${school.id}">
+                                    🗑️ Archive/Delete
+                                </button>
+                                <input type="text" class="form-control form-control-sm" placeholder="New Principal Phone" data-id="${school.id}" data-input="principal" />
+                                <button class="btn btn-sm btn-outline-success" data-action="change" data-id="${school.id}">
+                                    Change Principal
+                                </button>
+                            </div>
+                        </td>
+                    `;
+                    schoolsTable.appendChild(row);
+                });
+                applySchoolFilter();
+            applyRolePermissions(currentRole);
+            } catch (err) {
+                schoolsTable.innerHTML = '<tr data-row-type="placeholder"><td colspan="9" class="text-center text-danger">Failed to load schools.</td></tr>';
+            }
+        }
+
+        async function loadTeachers() {
+            try {
+                const params = new URLSearchParams();
+                if (classSchoolFilter.value) {
+                    params.set('school_id', classSchoolFilter.value);
+                }
+                const res = await fetch(`/api/admin/teachers${params.toString() ? `?${params}` : ''}`, {
+                    headers: getHeaders()
+                });
+                if (!res.ok) throw new Error('Unauthorized');
+                const data = await res.json();
+                teachersCache = Array.isArray(data.teachers) ? data.teachers : [];
+            } catch (err) {
+                teachersCache = [];
+            }
+        }
+
+        function buildTeacherOptions(schoolId, currentPhone) {
+            const teachers = teachersCache.filter((teacher) => Number(teacher.school_id) === Number(schoolId));
+            const options = ['<option value="">Unassigned</option>'];
+            const normalizedCurrent = currentPhone ? String(currentPhone) : '';
+            if (normalizedCurrent && !teachers.some((t) => String(t.phone_number) === normalizedCurrent)) {
+                options.push(`<option value="${normalizedCurrent}">Current: ${normalizedCurrent}</option>`);
+            }
+            teachers.forEach((teacher) => {
+                const phone = teacher.phone_number || '';
+                const label = teacher.name ? `${teacher.name} (${phone})` : phone;
+                const selected = normalizedCurrent && phone === normalizedCurrent ? 'selected' : '';
+                options.push(`<option value="${phone}" ${selected}>${label}</option>`);
+            });
+            return options.join('');
+        }
+
+        async function loadClasses() {
+            classesTable.innerHTML = '<tr><td colspan="4" class="text-center small-muted">Loading...</td></tr>';
+            try {
+                await loadTeachers();
+                const params = new URLSearchParams();
+                if (classSchoolFilter.value) {
+                    params.set('school_id', classSchoolFilter.value);
+                }
+                const res = await fetch(`/api/admin/classes${params.toString() ? `?${params}` : ''}`, {
+                    headers: getHeaders()
+                });
+                if (!res.ok) throw new Error('Unauthorized');
+                const data = await res.json();
+                const classes = Array.isArray(data.classes) ? data.classes : [];
+                classesTable.innerHTML = '';
+                if (classes.length === 0) {
+                    classesTable.innerHTML = '<tr><td colspan="4" class="text-center small-muted">No classes found.</td></tr>';
+                    return;
+                }
+                classes.forEach((item) => {
+                    const row = document.createElement('tr');
+                    const teacherOptions = buildTeacherOptions(item.school_id, item.teacher_phone);
+                    row.innerHTML = `
+                        <td>${item.school_name || '-'}</td>
+                        <td>${item.name || '-'}</td>
+                        <td>
+                            <select class="form-select form-select-sm" data-class-id="${item.id}">
+                                ${teacherOptions}
+                            </select>
+                        </td>
+                        <td>
+                            <button class="btn btn-sm btn-outline-success" data-action="save-class" data-id="${item.id}">
+                                Save
+                            </button>
+                        </td>
+                    `;
+                    classesTable.appendChild(row);
+                });
+            } catch (err) {
+                classesTable.innerHTML = '<tr><td colspan="4" class="text-center text-danger">Failed to load classes.</td></tr>';
+            }
+        }
+
+        async function refreshSchoolsAndAgents() {
+            await loadAgents();
+            await loadSchools();
+        }
+
+        async function loadStudents() {
+            studentsTable.innerHTML = '<tr><td colspan="4" class="text-center small-muted">Loading...</td></tr>';
+            try {
+                const res = await fetch('/api/admin/students?limit=200', { headers: getHeaders() });
+                if (!res.ok) throw new Error('Unauthorized');
+                const data = await res.json();
+                if (!data.students || data.students.length === 0) {
+                    studentsTable.innerHTML = '<tr><td colspan="4" class="text-center small-muted">No students found.</td></tr>';
+                    return;
+                }
+                studentsTable.innerHTML = '';
+                data.students.forEach((student) => {
+                    const row = document.createElement('tr');
+                    const lat = student.latitude ?? student.gps_lat;
+                    const long = student.longitude ?? student.gps_long;
+                    const accuracy = student.gps_accuracy;
+                    const hasCoords = lat !== null && lat !== undefined && lat !== '';
+                    const hasAccuracy = accuracy !== null && accuracy !== undefined && accuracy !== '';
+                    let dotClass = 'red';
+                    if (hasCoords && hasAccuracy) {
+                        const acc = Number(accuracy);
+                        if (!Number.isNaN(acc) && acc <= 20) dotClass = 'green';
+                        else if (!Number.isNaN(acc) && acc > 20 && acc <= 50) dotClass = 'yellow';
+                        else if (!Number.isNaN(acc) && acc > 50) dotClass = 'red';
+                    }
+                    const tooltip = hasCoords
+                        ? `Lat: ${lat}, Long: ${long}${hasAccuracy ? `, Acc: ${accuracy}m` : ''}`
+                        : 'No GPS data';
+                    const badgeHtml = hasCoords
+                        ? `<span class="gps-dot ${dotClass}" title="${tooltip}"></span>`
+                        : `<span class="gps-badge na" title="${tooltip}">N/A</span>`;
+                    row.innerHTML = `
+                        <td>
+                            ${badgeHtml}
+                            ${student.full_name || '-'}
+                        </td>
+                        <td>${student.class_level || '-'}</td>
+                        <td>${student.guardian_phone || '-'}</td>
+                        <td>${[student.city, student.state].filter(Boolean).join(', ') || '-'}</td>
+                    `;
+                    studentsTable.appendChild(row);
+                });
+            } catch (err) {
+                studentsTable.innerHTML = '<tr><td colspan="4" class="text-center text-danger">Failed to load students.</td></tr>';
+            }
+        }
+
+        function renderStudentsTable(records) {
+            studentsTable.innerHTML = '';
+            if (!records || records.length === 0) {
+                studentsTable.innerHTML = '<tr><td colspan="4" class="text-center small-muted">No students found.</td></tr>';
+                return;
+            }
+            records.forEach((student) => {
+                const row = document.createElement('tr');
+                const lat = student.latitude ?? student.gps_lat;
+                const long = student.longitude ?? student.gps_long;
+                const accuracy = student.gps_accuracy;
+                const hasCoords = lat !== null && lat !== undefined && lat !== '';
+                const hasAccuracy = accuracy !== null && accuracy !== undefined && accuracy !== '';
+                let dotClass = 'red';
+                if (hasCoords && hasAccuracy) {
+                    const acc = Number(accuracy);
+                    if (!Number.isNaN(acc) && acc <= 20) dotClass = 'green';
+                    else if (!Number.isNaN(acc) && acc > 20 && acc <= 50) dotClass = 'yellow';
+                    else if (!Number.isNaN(acc) && acc > 50) dotClass = 'red';
+                }
+                const tooltip = hasCoords
+                    ? `Lat: ${lat}, Long: ${long}${hasAccuracy ? `, Acc: ${accuracy}m` : ''}`
+                    : 'No GPS data';
+                const badgeHtml = hasCoords
+                    ? `<span class="gps-dot ${dotClass}" title="${tooltip}"></span>`
+                    : `<span class="gps-badge na" title="${tooltip}">N/A</span>`;
+                row.innerHTML = `
+                    <td>
+                        ${badgeHtml}
+                        ${student.full_name || '-'}
+                    </td>
+                    <td>${student.class_level || '-'}</td>
+                    <td>${student.guardian_phone || '-'}</td>
+                    <td>${[student.city, student.state].filter(Boolean).join(', ') || '-'}</td>
+                `;
+                studentsTable.appendChild(row);
+            });
+        }
+
+        async function loadLeads() {
+            leadsTable.innerHTML = '<tr><td colspan="7" class="text-center small-muted">Loading...</td></tr>';
+            try {
+                const res = await fetch('/api/admin/leads', { headers: getHeaders() });
+                if (!res.ok) throw new Error('Unauthorized');
+                const data = await res.json();
+                const leads = Array.isArray(data.leads) ? data.leads : [];
+                leadsTable.innerHTML = '';
+                if (leads.length === 0) {
+                    leadsTable.innerHTML = '<tr><td colspan="7" class="text-center small-muted">No new leads.</td></tr>';
+                    return;
+                }
+                leads.forEach((lead) => {
+                    const row = document.createElement('tr');
+                    const paymentStatus = lead.payment_status || 'PENDING';
+                    const receiptUrl = lead.payment_proof_url || '';
+                    const receiptHtml = receiptUrl
+                        ? `<a class="btn btn-sm btn-outline-primary" href="${receiptUrl}" target="_blank">View Receipt</a>`
+                        : '<span class="small-muted">-</span>';
+                    if (paymentStatus === 'VERIFYING') {
+                        row.classList.add('lead-verifying');
+                    }
+                    const actionsHtml = `
+                        <div class="d-flex flex-wrap gap-2 admin-only">
+                            <button class="btn btn-sm btn-outline-success" data-action="approve" data-id="${lead.id}">
+                                Approve & Create
+                            </button>
+                            <button class="btn btn-sm btn-outline-danger super-admin-only" data-action="reject" data-id="${lead.id}">
+                                Reject
+                            </button>
+                        </div>
+                    `;
+                    row.innerHTML = `
+                        <td>${lead.school_name || '-'}</td>
+                        <td>${lead.principal_name || '-'}</td>
+                        <td>${lead.principal_phone || '-'}</td>
+                        <td>${lead.status || 'PENDING'}</td>
+                        <td>
+                            <div class="d-flex flex-column gap-1">
+                                <span>${paymentStatus}</span>
+                                ${receiptHtml}
+                            </div>
+                        </td>
+                        <td>${lead.created_at || '-'}</td>
+                        <td>${actionsHtml}</td>
+                    `;
+                    leadsTable.appendChild(row);
+                });
+                applyRolePermissions(currentRole);
+            } catch (err) {
+                leadsTable.innerHTML = '<tr><td colspan="7" class="text-center text-danger">Failed to load leads.</td></tr>';
+            }
+        }
+
+        function renderAuditSummary(rows) {
+            if (!rows || rows.length === 0) {
+                auditSummary.textContent = 'No approvals yet.';
+                return;
+            }
+            const lines = rows.map((row) => `${row.performed_by || 'Unknown'}: ${row.approvals} approvals`);
+            auditSummary.innerHTML = lines.map((line) => `<div>${line}</div>`).join('');
+        }
+
+        async function loadAuditMetrics() {
+            try {
+                const params = new URLSearchParams();
+                if (auditStaffFilter.value.trim()) {
+                    params.set('staff', auditStaffFilter.value.trim());
+                }
+                if (auditStartDate.value) {
+                    params.set('start', auditStartDate.value);
+                }
+                if (auditEndDate.value) {
+                    params.set('end', auditEndDate.value);
+                }
+                const url = `/api/admin/audit-metrics${params.toString() ? `?${params}` : ''}`;
+                const res = await fetch(url, { headers: getHeaders() });
+                if (!res.ok) throw new Error('Unauthorized');
+                const data = await res.json();
+                renderAuditSummary(Array.isArray(data.approvals) ? data.approvals : []);
+            } catch (err) {
+                auditSummary.textContent = 'Failed to load metrics.';
+            }
+        }
+
+        async function loadAuditLogs() {
+            auditTable.innerHTML = '<tr><td colspan="4" class="text-center small-muted">Loading...</td></tr>';
+            try {
+                const params = new URLSearchParams({ limit: '200' });
+                if (auditTicketSearch.value.trim()) {
+                    params.set('ticket_ref', auditTicketSearch.value.trim());
+                }
+                const res = await fetch(`/api/admin/audit-logs?${params.toString()}`, { headers: getHeaders() });
+                if (!res.ok) throw new Error('Unauthorized');
+                const data = await res.json();
+                const logs = Array.isArray(data.logs) ? data.logs : [];
+                auditTable.innerHTML = '';
+                if (logs.length === 0) {
+                    auditTable.innerHTML = '<tr><td colspan="4" class="text-center small-muted">No audit logs found.</td></tr>';
+                    auditSummary.textContent = 'No approvals yet.';
+                    return;
+                }
+                logs.forEach((log) => {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>${log.ticket_ref || '-'}</td>
+                        <td>${log.action_type || '-'}</td>
+                        <td>${log.performed_by || '-'}</td>
+                        <td>${log.timestamp || '-'}</td>
+                    `;
+                    auditTable.appendChild(row);
+                });
+                await loadAuditMetrics();
+            } catch (err) {
+                auditTable.innerHTML = '<tr><td colspan="4" class="text-center text-danger">Failed to load audit logs.</td></tr>';
+                auditSummary.textContent = 'Failed to load metrics.';
+            }
+        }
+
+        function showSection(section) {
+            const isAudit = section === 'audit';
+            dashboardSection.style.display = isAudit ? 'none' : 'block';
+            auditSection.style.display = isAudit ? 'block' : 'none';
+            menuDashboard.classList.toggle('btn-success', !isAudit);
+            menuDashboard.classList.toggle('btn-outline-success', isAudit);
+            menuAudit.classList.toggle('btn-dark', isAudit);
+            menuAudit.classList.toggle('btn-outline-dark', !isAudit);
+        }
+
+        async function loadDeleted() {
+            const table = document.getElementById('restoreTable').value;
+            deletedTable.innerHTML = '<tr><td colspan="4" class="text-center small-muted">Loading...</td></tr>';
+            try {
+                const res = await fetch(`/api/admin/deleted/${table}`, { headers: getHeaders() });
+                if (!res.ok) throw new Error('Unauthorized');
+                const data = await res.json();
+                if (!data.rows || data.rows.length === 0) {
+                    deletedTable.innerHTML = '<tr><td colspan="4" class="text-center small-muted">No deleted rows.</td></tr>';
+                    return;
+                }
+                deletedTable.innerHTML = '';
+                data.rows.forEach((row) => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td>${row.id}</td>
+                        <td>${getRowLabel(row)}</td>
+                        <td>${row.deleted_at || '-'}</td>
+                        <td>
+                            <button class="btn btn-sm btn-outline-success" data-action="restore" data-table="${table}" data-id="${row.id}">
+                                Restore
+                            </button>
+                        </td>
+                    `;
+                    deletedTable.appendChild(tr);
+                });
+            } catch (err) {
+                deletedTable.innerHTML = '<tr><td colspan="4" class="text-center text-danger">Failed to load deleted rows.</td></tr>';
+            }
+        }
+
+        document.getElementById('authBtn').addEventListener('click', async () => {
+            try {
+                const res = await fetch('/api/admin/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        username: usernameInput.value.trim(),
+                        password: masterInput.value
+                    })
+                });
+                if (!res.ok) throw new Error('Unauthorized');
+                const data = await res.json();
+                const role = data.role || '';
+                localStorage.setItem(USERNAME_KEY, usernameInput.value.trim());
+                applyRolePermissions(role);
+                setAuthStatus('Authenticated');
+                loginSection.style.display = 'none';
+                secureContent.style.display = 'block';
+                await refreshSchoolsAndAgents();
+                await loadStudents();
+                await loadClasses();
+                await loadDeleted();
+                await loadLeads();
+            } catch (err) {
+                setAuthStatus('Unauthorized', true);
+                alert('Invalid Password');
+            }
+        });
+
+        logoutBtn.addEventListener('click', async () => {
+            loginSection.style.display = 'block';
+            secureContent.style.display = 'none';
+            setAuthStatus('Not Authenticated');
+            localStorage.removeItem(ROLE_KEY);
+            applyRolePermissions('');
+            resetSecureContent();
+            try {
+                await fetch('/api/admin/logout', { method: 'POST' });
+            } catch (err) {
+                // ignore
+            }
+        });
+
+        document.getElementById('refreshSchools').addEventListener('click', refreshSchoolsAndAgents);
+        document.getElementById('refreshAgents').addEventListener('click', loadAgents);
+        document.getElementById('refreshStudents').addEventListener('click', loadStudents);
+        refreshClasses.addEventListener('click', loadClasses);
+        createTeacherBtn.addEventListener('click', async () => {
+            const name = newTeacherName.value.trim();
+            const phone = sanitizePhone(newTeacherPhone.value);
+            const schoolId = teacherSchoolSelect.value;
+            if (!name || !phone || !schoolId) {
+                showToast('Provide teacher name, phone, and school.', true);
+                return;
+            }
+            try {
+                const res = await fetch('/api/admin/teachers', {
+                    method: 'POST',
+                    headers: getHeaders(),
+                    body: JSON.stringify({
+                        name,
+                        phone,
+                        school_id: Number(schoolId)
+                    })
+                });
+                if (!res.ok) {
+                    const err = await res.json().catch(() => ({}));
+                    throw new Error(err.error || 'Failed to add teacher.');
+                }
+                newTeacherName.value = '';
+                newTeacherPhone.value = '';
+                showToast('Teacher added.');
+                await loadClasses();
+            } catch (err) {
+                showToast(err.message || 'Failed to add teacher.', true);
+            }
+        });
+        document.getElementById('refreshDeleted').addEventListener('click', loadDeleted);
+        refreshLeads.addEventListener('click', loadLeads);
+        refreshAudit.addEventListener('click', loadAuditLogs);
+        askAiBtn.addEventListener('click', async () => {
+            const queryText = studentQueryInput.value.trim();
+            if (!queryText) {
+                showToast('Enter a query first.', true);
+                return;
+            }
+            studentsTable.innerHTML = '<tr><td colspan="4" class="text-center small-muted">Searching...</td></tr>';
+            try {
+                const res = await fetch('/api/query/ask', {
+                    method: 'POST',
+                    headers: getHeaders(),
+                    body: JSON.stringify({ query_text: queryText })
+                });
+                if (!res.ok) throw new Error('Failed to run query.');
+                const data = await res.json();
+                if (data.count !== undefined) {
+                    showToast(`Total students: ${data.count}`);
+                    await loadStudents();
+                    return;
+                }
+                const results = Array.isArray(data.results) ? data.results : [];
+                renderStudentsTable(results);
+                showToast(`Found ${results.length} records matching your query.`);
+            } catch (err) {
+                showToast(err.message || 'Failed to run query.', true);
+            }
+        });
+        clearQueryBtn.addEventListener('click', async () => {
+            studentQueryInput.value = '';
+            await loadStudents();
+        });
+        studentQueryInput.addEventListener('keydown', (event) => {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                askAiBtn.click();
+            }
+        });
+        generateAgentCodeBtn.addEventListener('click', () => {
+            agentAccessCode.value = generateRandomDigits(6);
+            agentAccessCode.dispatchEvent(new Event('input'));
+        });
+        agentAccessCode.addEventListener('input', () => {
+            agentAccessCode.value = agentAccessCode.value.replace(/[^\d]/g, '').slice(0, 6);
+        });
+
+        schoolCategory.addEventListener('change', () => {
+            const isOther = schoolCategory.value === 'Other';
+            categoryOtherWrapper.classList.toggle('d-none', !isOther);
+            if (!isOther) {
+                categoryOther.value = '';
+            }
+        });
+
+        schoolSearch.addEventListener('keyup', applySchoolFilter);
+        classSchoolFilter.addEventListener('change', loadClasses);
+
+        function updateFormFields() {
+            const category = schoolCategory.value;
+            const isMalamCategory = category === 'Makarantar Allo' || category === 'Islamiya';
+            const isIdpCamp = category === 'IDP Camp';
+            const isOrphanage = category === 'Orphanage';
+
+            if (principalNameLabel) {
+                if (isMalamCategory) {
+                    principalNameLabel.textContent = 'Malam / Proprietor Name';
+                } else if (isIdpCamp) {
+                    principalNameLabel.textContent = 'Camp Coordinator Name';
+                } else if (isOrphanage) {
+                    principalNameLabel.textContent = 'Head of Care / Matron';
+                } else {
+                    principalNameLabel.textContent = defaultLabels.principalName;
+                }
+            }
+
+            if (principalPhoneLabel) {
+                principalPhoneLabel.textContent = isMalamCategory
+                    ? "Malam's WhatsApp"
+                    : defaultLabels.principalPhone;
+            }
+
+            if (contactPhoneLabel) {
+                contactPhoneLabel.textContent = isIdpCamp
+                    ? 'Emergency / Coordinator Phone'
+                    : defaultLabels.contactPhone;
+            }
+
+            if (copyFromPrincipalLabel) {
+                copyFromPrincipalLabel.textContent = isMalamCategory
+                    ? 'Same as Malam'
+                    : defaultLabels.copyFromPrincipal;
+            }
+
+            if (isIdpCamp) {
+                cacRegistered.value = 'no';
+                hasBankAccount.value = 'no';
+                cacRegistered.disabled = true;
+                hasBankAccount.disabled = true;
+                principalPhone.value = 'N/A';
+                principalPhone.disabled = true;
+                principalPhoneHint?.classList.remove('d-none');
+                cacRegisteredHint?.classList.remove('d-none');
+                hasBankAccountHint?.classList.remove('d-none');
+                principalPhoneLabel?.classList.add('text-muted');
+                cacRegisteredLabel?.classList.add('text-muted');
+                hasBankAccountLabel?.classList.add('text-muted');
+            } else {
+                cacRegistered.disabled = false;
+                hasBankAccount.disabled = false;
+                principalPhone.disabled = false;
+                if (principalPhone.value === 'N/A') {
+                    principalPhone.value = '';
+                }
+                principalPhoneHint?.classList.add('d-none');
+                cacRegisteredHint?.classList.add('d-none');
+                hasBankAccountHint?.classList.add('d-none');
+                principalPhoneLabel?.classList.remove('text-muted');
+                cacRegisteredLabel?.classList.remove('text-muted');
+                hasBankAccountLabel?.classList.remove('text-muted');
+            }
+        }
+
+        copyFromPrincipal.addEventListener('change', () => {
+            if (copyFromPrincipal.checked) {
+                headOfInstitution.value = principalName.value.trim();
+                contactPhone.value = principalPhone.value.trim();
+            }
+        });
+
+        onboardForm.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            const name = document.getElementById('schoolName').value.trim();
+            const email = schoolEmail.value.trim();
+            const address = document.getElementById('schoolAddress').value.trim();
+            const principalNameValue = principalName.value.trim();
+            const principalPhoneValue = principalPhone.disabled && principalPhone.value === 'N/A'
+                ? 'N/A'
+                : sanitizePhone(principalPhone.value);
+            const plan = document.querySelector('input[name="plan"]:checked')?.value || '';
+            const category = schoolCategory.value === 'Other'
+                ? categoryOther.value.trim()
+                : schoolCategory.value;
+            const cacValue = cacRegistered.value === 'yes';
+            const bankValue = hasBankAccount.value === 'yes';
+            const agentId = assignedAgent.value ? Number(assignedAgent.value) : null;
+
+            try {
+                const res = await fetch('/api/admin/onboard-school', {
+                    method: 'POST',
+                    headers: getAdminHeaders(),
+                    body: JSON.stringify({
+                        school_name: name,
+                        email,
+                        address,
+                        principal_name: principalNameValue,
+                        principal_phone: principalPhoneValue,
+                        plan,
+                        category,
+                        cac_registered: cacValue,
+                        has_bank_account: bankValue,
+                        head_of_institution: headOfInstitution.value.trim(),
+                        contact_phone: sanitizePhone(contactPhone.value),
+                        agent_id: agentId
+                    })
+                });
+
+                if (!res.ok) {
+                    const error = await res.json().catch(() => ({}));
+                    throw new Error(error.error || 'Failed to create school.');
+                }
+
+                document.getElementById('schoolName').value = '';
+                schoolEmail.value = '';
+                document.getElementById('schoolAddress').value = '';
+                principalName.value = '';
+                principalPhone.value = '';
+                headOfInstitution.value = '';
+                contactPhone.value = '';
+                cacRegistered.value = 'no';
+                hasBankAccount.value = 'no';
+                copyFromPrincipal.checked = false;
+                document.getElementById('planTermly').checked = true;
+                schoolCategory.value = 'Conventional (Public)';
+                categoryOther.value = '';
+                categoryOtherWrapper.classList.add('d-none');
+                assignedAgent.value = '';
+                updateFormFields();
+
+                showToast('✅ School Created! WhatsApp sent to Principal.');
+
+                const modalInstance = bootstrap.Modal.getOrCreateInstance(onboardModal);
+                modalInstance.hide();
+
+                await loadSchools();
+            } catch (err) {
+                showToast(err.message || 'Failed to create school.', true);
+            }
+        });
+
+        agentForm.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            const name = document.getElementById('agentName').value.trim();
+            const phone = sanitizePhone(document.getElementById('agentPhone').value);
+            const email = document.getElementById('agentEmail').value.trim();
+            const nin = document.getElementById('agentNin').value.trim();
+            const role = document.getElementById('agentRole').value.trim();
+            const address = document.getElementById('agentAddress').value.trim();
+            const accessCode = agentAccessCode.value.trim();
+
+            try {
+                const endpoint = editingAgentId ? `/api/agents/${editingAgentId}` : '/api/agents';
+                const res = await fetch(endpoint, {
+                    method: editingAgentId ? 'PUT' : 'POST',
+                    headers: getHeaders(),
+                    body: JSON.stringify({
+                        name,
+                        phone,
+                        email,
+                        nin,
+                        role,
+                        address,
+                        ...(editingAgentId ? {} : { access_code: accessCode })
+                    })
+                });
+                if (!res.ok) {
+                    const error = await res.json().catch(() => ({}));
+                    throw new Error(error.error || 'Failed to save agent.');
+                }
+
+                resetAgentForm();
+                showToast(editingAgentId ? '✅ Agent updated.' : '✅ Agent created.');
+                const modalInstance = bootstrap.Modal.getOrCreateInstance(agentModal);
+                modalInstance.hide();
+                await loadAgents();
+            } catch (err) {
+                showToast(err.message || 'Failed to save agent.', true);
+            }
+        });
+
+        agentModal.addEventListener('hidden.bs.modal', resetAgentForm);
+
+        agentsTable.addEventListener('click', async (event) => {
+            const action = event.target?.dataset?.action;
+            if (action === 'copy-code') {
+                const code = event.target?.dataset?.code;
+                if (!code) return;
+                try {
+                    await navigator.clipboard.writeText(code);
+                    showToast('Access code copied.');
+                } catch (err) {
+                    showToast('Failed to copy access code.', true);
+                }
+                return;
+            }
+
+            const agentId = event.target?.dataset?.id;
+            if (!action || !agentId) return;
+
+            const agent = agentsCache.find((item) => Number(item.id) === Number(agentId));
+            if (!agent) return;
+
+            if (action === 'edit') {
+                editingAgentId = agent.id;
+                const title = document.querySelector('#agentModal .modal-title');
+                if (title) title.textContent = 'Edit Field Agent';
+                document.getElementById('agentName').value = agent.name || '';
+                document.getElementById('agentPhone').value = agent.phone || '';
+                document.getElementById('agentEmail').value = agent.email || '';
+                document.getElementById('agentNin').value = agent.nin || '';
+                document.getElementById('agentRole').value = agent.role || '';
+                document.getElementById('agentAddress').value = agent.address || '';
+                agentAccessCode.value = agent.access_code || '';
+                agentAccessCode.readOnly = true;
+                generateAgentCodeBtn.disabled = true;
+                agentAccessHint.textContent = 'Access codes cannot be edited after creation.';
+                bootstrap.Modal.getOrCreateInstance(agentModal).show();
+                return;
+            }
+
+            if (action === 'regen') {
+                const confirmRegen = confirm(`Regenerate access code for "${agent.name || 'this agent'}"?`);
+                if (!confirmRegen) return;
+                try {
+                    const res = await fetch('/api/agent/regenerate-code', {
+                        method: 'POST',
+                        headers: getHeaders(),
+                        body: JSON.stringify({ agent_id: agent.id })
+                    });
+                    if (!res.ok) throw new Error('Failed to regenerate access code.');
+                    showToast('Access code regenerated.');
+                    await loadAgents();
+                } catch (err) {
+                    showToast(err.message || 'Failed to regenerate access code.', true);
+                }
+                return;
+            }
+
+            if (action === 'toggle') {
+                const nextStatus = agent.is_active === false;
+                try {
+                    const res = await fetch(`/api/agents/${agent.id}`, {
+                        method: 'PUT',
+                        headers: getHeaders(),
+                        body: JSON.stringify({ is_active: nextStatus })
+                    });
+                    if (!res.ok) throw new Error('Failed to update agent status.');
+                    showToast(nextStatus ? 'Agent activated.' : 'Agent deactivated.');
+                    await refreshSchoolsAndAgents();
+                } catch (err) {
+                    showToast(err.message || 'Failed to update agent.', true);
+                }
+                return;
+            }
+
+            if (action === 'delete') {
+                const confirmDelete = confirm(`Delete agent "${agent.name || 'this agent'}"?`);
+                if (!confirmDelete) return;
+                try {
+                    const res = await fetch(`/api/agents/${agent.id}`, {
+                        method: 'DELETE',
+                        headers: getHeaders()
+                    });
+                    if (!res.ok) throw new Error('Failed to delete agent.');
+                    showToast('Agent deleted.');
+                    await refreshSchoolsAndAgents();
+                } catch (err) {
+                    showToast(err.message || 'Failed to delete agent.', true);
+                }
+            }
+        });
+
+        schoolsTable.addEventListener('click', async (event) => {
+            const action = event.target?.dataset?.action;
+            const schoolId = event.target?.dataset?.id;
+            if (!action || !schoolId) return;
+
+            if (action === 'archive') {
+                const confirmArchive = confirm('Archive this school? This hides it from active lists.');
+                if (!confirmArchive) return;
+                await fetch(`/api/schools/${schoolId}`, {
+                    method: 'DELETE',
+                    headers: getHeaders()
+                });
+                await loadSchools();
+                showUndoArchiveToast(schoolId);
+            }
+
+            if (action === 'change') {
+                const input = schoolsTable.querySelector(`input[data-input="principal"][data-id="${schoolId}"]`);
+                const newPhone = input?.value?.trim();
+                if (!newPhone) {
+                    alert('Enter the new principal phone number.');
+                    return;
+                }
+                await fetch(`/api/admin/schools/${schoolId}/change-principal`, {
+                    method: 'POST',
+                    headers: getHeaders(),
+                    body: JSON.stringify({ new_admin_phone: newPhone })
+                });
+                input.value = '';
+                await loadSchools();
+            }
+        });
+
+        schoolsTable.addEventListener('change', async (event) => {
+            if (!event.target?.classList?.contains('agent-assign')) return;
+            const schoolId = event.target.dataset.schoolId;
+            const agentId = event.target.value ? Number(event.target.value) : null;
+            if (!schoolId) return;
+            try {
+                const res = await fetch(`/api/admin/schools/${schoolId}/agent`, {
+                    method: 'PUT',
+                    headers: getHeaders(),
+                    body: JSON.stringify({ agent_id: agentId })
+                });
+                if (!res.ok) throw new Error('Failed to update agent assignment.');
+                showToast('Assigned agent updated.');
+            } catch (err) {
+                showToast(err.message || 'Failed to update agent.', true);
+                await loadSchools();
+            }
+        });
+
+        classesTable.addEventListener('click', async (event) => {
+            const action = event.target?.dataset?.action;
+            const classId = event.target?.dataset?.id;
+            if (action !== 'save-class' || !classId) return;
+            const select = classesTable.querySelector(`select[data-class-id="${classId}"]`);
+            const teacherPhone = select ? sanitizePhone(select.value) : '';
+            try {
+                const res = await fetch(`/api/admin/classes/${classId}/teacher`, {
+                    method: 'PUT',
+                    headers: getHeaders(),
+                    body: JSON.stringify({
+                        teacher_phone: teacherPhone
+                    })
+                });
+                if (!res.ok) throw new Error('Failed to update teacher.');
+                showToast('Class teacher updated.');
+                await loadClasses();
+            } catch (err) {
+                showToast(err.message || 'Failed to update teacher.', true);
+            }
+        });
+
+        deletedTable.addEventListener('click', async (event) => {
+            const action = event.target?.dataset?.action;
+            const rowId = event.target?.dataset?.id;
+            const table = event.target?.dataset?.table;
+            if (action !== 'restore' || !rowId || !table) return;
+
+            await fetch(`/api/admin/restore/${table}/${rowId}`, {
+                method: 'POST',
+                headers: getHeaders()
+            });
+            await loadDeleted();
+        });
+
+        leadsTable.addEventListener('click', async (event) => {
+            const action = event.target?.dataset?.action;
+            const leadId = event.target?.dataset?.id;
+            if (!action || !leadId) return;
+            if (action === 'approve') {
+                try {
+                    const res = await fetch('/api/leads/approve', {
+                        method: 'POST',
+                        headers: getHeaders(),
+                        body: JSON.stringify({ lead_id: leadId })
+                    });
+                    if (!res.ok) throw new Error('Failed to approve lead.');
+                    showToast('Lead approved. School created.');
+                    await loadLeads();
+                    await loadSchools();
+                } catch (err) {
+                    showToast(err.message || 'Failed to approve lead.', true);
+                }
+            }
+            if (action === 'reject') {
+                const confirmReject = confirm('Reject this lead?');
+                if (!confirmReject) return;
+                try {
+                    const res = await fetch(`/api/admin/leads/${leadId}`, {
+                        method: 'DELETE',
+                        headers: getHeaders()
+                    });
+                    if (!res.ok) throw new Error('Failed to reject lead.');
+                    showToast('Lead rejected.');
+                    await loadLeads();
+                } catch (err) {
+                    showToast(err.message || 'Failed to reject lead.', true);
+                }
+            }
+        });
+
+        menuDashboard.addEventListener('click', () => {
+            showSection('dashboard');
+        });
+        menuAudit.addEventListener('click', async () => {
+            showSection('audit');
+            await loadAuditLogs();
+        });
+        auditTicketSearch.addEventListener('input', () => {
+            if (auditSection.style.display === 'block') {
+                loadAuditLogs();
+            }
+        });
+        [auditStaffFilter, auditStartDate, auditEndDate].forEach((el) => {
+            el.addEventListener('change', loadAuditMetrics);
+        });
+
+        document.getElementById('exportSchools').addEventListener('click', async () => {
+            try {
+                const res = await fetch('/api/export-schools', { headers: getHeaders() });
+                if (!res.ok) throw new Error('Unauthorized');
+                const blob = await res.blob();
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = `schools_export_${new Date().toISOString().slice(0, 10)}.csv`;
+                document.body.appendChild(link);
+                link.click();
+                link.remove();
+                URL.revokeObjectURL(url);
+            } catch (err) {
+                alert('Failed to export schools.');
+            }
+        });
+
+        document.getElementById('exportStudents').addEventListener('click', async () => {
+            try {
+                const res = await fetch('/api/admin/export-students', { headers: getHeaders() });
+                if (!res.ok) throw new Error('Unauthorized');
+                const blob = await res.blob();
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = `students_export_${new Date().toISOString().slice(0, 10)}.csv`;
+                document.body.appendChild(link);
+                link.click();
+                link.remove();
+                URL.revokeObjectURL(url);
+            } catch (err) {
+                alert('Failed to export students.');
+            }
+        });
+
+        usernameInput.value = localStorage.getItem(USERNAME_KEY) || '';
+        updateFormFields();
+        schoolCategory.addEventListener('change', updateFormFields);
+        showSection('dashboard');
+    </script>
+</body>
+</html>
